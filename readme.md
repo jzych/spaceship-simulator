@@ -6,20 +6,19 @@
 
 ## Running locally
 
-1. Configure the project with CMake and build using Ninja:
+1. Build the project:
 
    ```sh
-   cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
    cmake --build build
    ```
 
-2. Run the simulator:
+2. Run the project:
 
    ```sh
    ./build/spaceship-simulator
    ```
 
-3. Run the unit tests:
+3. Run the tests:
 
    ```sh
    ctest --test-dir build -VV
