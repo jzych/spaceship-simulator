@@ -29,10 +29,12 @@ jobs:
           lcov --remove coverage.info '/usr/*' '/opt/*' --output-file coverage.info
           lcov --list coverage.info
       - name: Upload coverage reports to Codecov
+        if: ${{ secrets.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: jzych/spaceship-simulator
+          fail_ci_if_error: false
 
   sonarcloud:
     needs: build-test
