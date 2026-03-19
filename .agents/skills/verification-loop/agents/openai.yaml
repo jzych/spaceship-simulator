@@ -1,0 +1,7 @@
+interface:
+  display_name: "Verification Loop"
+  short_description: "Configure, build, run, and review before handoff"
+  brand_color: "#1D4ED8"
+  default_prompt: "Run the repo verification loop: configure, build, run, then review the diff."
+policy:
+  allow_implicit_invocation: true

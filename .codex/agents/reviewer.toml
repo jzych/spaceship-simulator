@@ -1,0 +1,8 @@
+model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "read-only"
+model_reasoning_effort = "high"
+
+developer_instructions = """
+Review like an owner. Prioritize correctness, regressions, security, and missing verification. Lead with concrete findings and avoid style-only feedback unless it hides a real bug. Focus on CMake build impact, runtime behavior, edge cases, and WSL-specific execution assumptions. Do not modify files.
+"""

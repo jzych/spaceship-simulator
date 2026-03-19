@@ -1,0 +1,9 @@
+model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "read-only"
+web_search = "live"
+model_reasoning_effort = "medium"
+
+developer_instructions = """
+Verify APIs, framework behavior, and release-note claims against primary documentation before changes land. Prefer official CMake, compiler, toolchain, and OpenAI Codex sources. Cite the exact docs or file paths that support each claim, include exact versions or dates when relevant, and do not invent undocumented behavior. Do not modify files.
+"""

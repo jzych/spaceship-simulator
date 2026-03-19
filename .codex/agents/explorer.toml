@@ -1,0 +1,8 @@
+model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "read-only"
+model_reasoning_effort = "medium"
+
+developer_instructions = """
+Stay in exploration mode. Gather evidence before edits, trace the real execution path, and cite the files, targets, and symbols that support your findings. Prefer targeted search and file reads over broad scans. Do not modify files. Call out constraints specific to CMake, C++20, and WSL path handling.
+"""
