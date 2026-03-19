@@ -4,6 +4,7 @@
 [![codecov](https://codecov.io/gh/jzych/spaceship-simulator/branch/main/graph/badge.svg)](https://app.codecov.io/gh/jzych/spaceship-simulator?branch=main)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/quality_gate?project=jzych_spaceship-simulator)](https://sonarcloud.io/dashboard?id=jzych_spaceship-simulator)
 
+
 A lightweight C++20 simulation of a planetary system. The project uses CMake for build management and Google Test for testing. Continuous integration is configured with GitHub Actions, Codecov for coverage reporting, SonarCloud for static analysis, and OpenAI Codex to review pull requests automatically.
 
 ## Running locally
