@@ -8,63 +8,105 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
-  build-test:
+  build-test-analyze:
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y lcov gcovr cmake build-essential ninja-build
-      - name: Configure and build with coverage
+          sudo apt-get install -y build-essential cmake lcov ninja-build
+
+      - name: Configure with coverage
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCMAKE_CXX_FLAGS="--coverage" -DCMAKE_C_FLAGS="--coverage"
-          cmake --build build
+          cmake -S . -B build -G Ninja \
+            -DBUILD_TESTING=ON \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DCMAKE_C_FLAGS=--coverage \
+            -DCMAKE_CXX_FLAGS=--coverage
+
+      - name: Build
+        run: cmake --build build
+
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
+
       - name: Generate coverage report
         run: |
-          lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch
-          lcov --remove coverage.info '/usr/*' '/opt/*' --output-file coverage.info
+          lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch,inconsistent
+          lcov --remove coverage.info '/usr/*' '*/_deps/*' --output-file coverage.info
           lcov --list coverage.info
+          test -s coverage.info
+
       - name: Upload coverage reports to Codecov
-        if: ${{ secrets.CODECOV_TOKEN != '' }}
+        if: env.CODECOV_TOKEN != ''
         uses: codecov/codecov-action@v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: jzych/spaceship-simulator
-          fail_ci_if_error: false
+          fail_ci_if_error: true
+          files: coverage.info
+          flags: unittests
+          token: ${{ env.CODECOV_TOKEN }}
+          verbose: true
 
-  sonarcloud:
-    needs: build-test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v3
-      - name: Cache SonarCloud packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      - name: SonarCloud Scan
-        uses: sonarsource/sonarcloud-github-action@v2
+      - name: Skip Codecov upload when token is unavailable
+        if: env.CODECOV_TOKEN == ''
+        run: echo "CODECOV_TOKEN is not set; skipping Codecov upload."
+
+      - name: Run SonarCloud scan
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v6.0.0
         with:
           args: >
-            -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
-            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
-            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.organization=jzych
+            -Dsonar.projectKey=jzych_spaceship-simulator
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.test.inclusions=tests/**
+            -Dsonar.exclusions=.ignore/**,build/**,docs/**,scripts/**
+            -Dsonar.coverage.exclusions=tests/**,src/main.cpp
+            -Dsonar.cfamily.compile-commands=build/compile_commands.json
+            -Dsonar.cfamily.gcov.reportsPath=build
+            -Dsonar.javascript.file.suffixes=-
+            -Dsonar.typescript.file.suffixes=-
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+
+      - name: Skip SonarCloud scan when token is unavailable
+        if: env.SONAR_TOKEN == ''
+        run: echo "SONAR_TOKEN is not set; skipping SonarCloud analysis."
 
   codex-pr-review:
-    if: github.event_name == 'pull_request' && secrets.OPENAI_API_KEY != ''
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
-      - uses: openai/codex-action@v1
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run Codex PR review
+        if: env.OPENAI_API_KEY != ''
+        uses: openai/codex-action@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          github-token: ${{ github.token }}
+          openai-api-key: ${{ env.OPENAI_API_KEY }}
+
+      - name: Skip Codex PR review when key is unavailable
+        if: env.OPENAI_API_KEY == ''
+        run: echo "OPENAI_API_KEY is not set; skipping Codex PR review."
