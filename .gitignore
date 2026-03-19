@@ -40,5 +40,9 @@
 # debug information files
 *.dwo
 
+# local build directories
+/build/
+/build-ci/
+
 # custom directory
 /.ignore
