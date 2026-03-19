@@ -20,8 +20,9 @@ This repository is configured for Codex with a lean, ECC-inspired workflow.
 1. Read the touched files before editing.
 2. Keep `CMakeLists.txt` and source changes aligned.
 3. Prefer simple implementations over speculative abstractions.
-4. Preserve a clean command path for WSL users.
-5. After meaningful changes, run the smallest relevant verification step.
+4. Prefer narrow, non-owning interfaces when passing existing data; use `std::span` or `std::string_view` whenever practical.
+5. Preserve a clean command path for WSL users.
+6. After meaningful changes, run the smallest relevant verification step.
 
 ## Verification Order
 
