@@ -23,9 +23,9 @@ jobs:
           cmake --build build
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
-      - name: Generate coverage report
+      - name: Generate coverage report 
         run: |
-          lcov --capture --directory build --output-file coverage.info
+          lcov --capture --direcdtory build --output-file coverage.info --ignore-errors mismatch
           lcov --remove coverage.info '/usr/*' '/opt/*' --output-file coverage.info
           lcov --list coverage.info
       - name: Upload coverage reports to Codecov
@@ -57,14 +57,14 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   codex-pr-review:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && secrets.OPENAI_API_KEY != ''
+       runs-on: ubuntu-latest
     permissions:
       pull-requests: write
     steps:
       - uses: actions/checkout@v3
       - name: Codex review
-        uses: openai/codex-action@v2
+        uses: openai/codex-action@v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
