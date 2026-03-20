@@ -1,6 +1,18 @@
 #include "server/simulation_server.hpp"
 
 #include <gtest/gtest.h>
+#include <numbers>
+
+namespace
+{
+
+constexpr double kDefaultShipAccelerationMetersPerSecondSquared = 20'000.0 / 1'000.0;
+constexpr double kExpectedVelocityDeltaPerTick =
+    kDefaultShipAccelerationMetersPerSecondSquared * spaceship::shared::constants::kFixedDeltaSeconds;
+constexpr double kQuarterTurnZAxisHalfAngleComponent = std::numbers::sqrt2_v<double> / 2.0;
+constexpr double kDefaultProjectileMuzzleSpeedMetersPerSecond = 1'000.0;
+
+} // namespace
 
 class SimulationServerSmokeTest : public ::testing::Test
 {
@@ -118,7 +130,6 @@ TEST_F(SimulationServerSmokeTest, UpdateShipControlReplacesExistingControlState)
 
 TEST_F(SimulationServerSmokeTest, TickAppliesForwardThrustToShipVelocity)
 {
-    constexpr double kExpectedVelocityDeltaX = 20'000.0 / 1'000.0 / 60.0;
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
         {{0.0, 0.0, 0.0}},
@@ -133,15 +144,13 @@ TEST_F(SimulationServerSmokeTest, TickAppliesForwardThrustToShipVelocity)
 
     ASSERT_EQ(server.world().ships.size(), 1U);
     const auto& ship = server.world().ships.front();
-    EXPECT_NEAR(ship.velocity.linear.x, kExpectedVelocityDeltaX, 1e-9);
+    EXPECT_NEAR(ship.velocity.linear.x, kExpectedVelocityDeltaPerTick, 1e-9);
     EXPECT_DOUBLE_EQ(ship.velocity.linear.y, 0.0);
     EXPECT_DOUBLE_EQ(ship.velocity.linear.z, 0.0);
 }
 
 TEST_F(SimulationServerSmokeTest, TickAppliesDesiredOrientationBeforeThrust)
 {
-    constexpr double kHalfSqrtTwo = 0.7071067811865476;
-    constexpr double kExpectedVelocityDeltaY = 20'000.0 / 1'000.0 / 60.0;
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
         {{0.0, 0.0, 0.0}},
@@ -150,15 +159,19 @@ TEST_F(SimulationServerSmokeTest, TickAppliesDesiredOrientationBeforeThrust)
     const auto shipNetId = server.spawnShip(request);
     ASSERT_TRUE(server.updateShipControl(
         shipNetId,
-        spaceship::shared::ShipControl {1.0, {kHalfSqrtTwo, 0.0, 0.0, kHalfSqrtTwo}, false}));
+        spaceship::shared::ShipControl {
+            1.0,
+            {kQuarterTurnZAxisHalfAngleComponent, 0.0, 0.0, kQuarterTurnZAxisHalfAngleComponent},
+            false,
+        }));
 
     server.tick();
 
     ASSERT_EQ(server.world().ships.size(), 1U);
     const auto& ship = server.world().ships.front();
-    EXPECT_NEAR(ship.transform.orientation.w, kHalfSqrtTwo, 1e-12);
+    EXPECT_NEAR(ship.transform.orientation.w, kQuarterTurnZAxisHalfAngleComponent, 1e-12);
     EXPECT_NEAR(ship.velocity.linear.x, 0.0, 1e-9);
-    EXPECT_NEAR(ship.velocity.linear.y, kExpectedVelocityDeltaY, 1e-9);
+    EXPECT_NEAR(ship.velocity.linear.y, kExpectedVelocityDeltaPerTick, 1e-9);
 }
 
 TEST_F(SimulationServerSmokeTest, TickDrivenFireSpawnsProjectileAndClearsFireFlag)
@@ -168,8 +181,9 @@ TEST_F(SimulationServerSmokeTest, TickDrivenFireSpawnsProjectileAndClearsFireFla
         {{1.0, 2.0, 3.0}, {1.0, 0.0, 0.0, 0.0}},
         {{10.0, 20.0, 30.0}},
     };
-    constexpr double kExpectedShipVelocityX = 10.0 + (20'000.0 / 1'000.0 / 60.0);
-    constexpr double kExpectedProjectileVelocityX = kExpectedShipVelocityX + 1'000.0;
+    constexpr double kExpectedShipVelocityX = 10.0 + kExpectedVelocityDeltaPerTick;
+    constexpr double kExpectedProjectileVelocityX =
+        kExpectedShipVelocityX + kDefaultProjectileMuzzleSpeedMetersPerSecond;
 
     const auto shipNetId = server.spawnShip(request);
     ASSERT_TRUE(server.updateShipControl(
