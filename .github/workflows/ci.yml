@@ -96,5 +96,4 @@ jobs:
       - name: Run Codex PR review
         uses: openai/codex-action@v1
         with:
-          github-token: ${{ github.token }}
           openai-api-key: ${{ env.OPENAI_API_KEY }}
