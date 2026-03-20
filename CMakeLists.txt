@@ -17,6 +17,8 @@ add_library(spaceship-server
     src/server/collision_system.hpp
     src/server/gravity_system.cpp
     src/server/gravity_system.hpp
+    src/server/ship_control_system.cpp
+    src/server/ship_control_system.hpp
     src/server/integration_system.cpp
     src/server/integration_system.hpp
     src/server/simulation_config.hpp

@@ -97,3 +97,4 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ env.OPENAI_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}

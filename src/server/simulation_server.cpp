@@ -17,19 +17,21 @@ shared::NetId SimulationServer::spawnShip(const ShipSpawnRequest& request)
     return spawningSystem_.spawnShip(world_.ships, request, config_);
 }
 
-std::optional<shared::NetId> SimulationServer::fireProjectile(shared::NetId shipNetId)
+bool SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control)
 {
     const auto ship = findShip(shipNetId);
     if (!ship.has_value())
     {
-        return std::nullopt;
+        return false;
     }
 
-    return spawningSystem_.spawnProjectile(world_.projectiles, ship->get(), config_);
+    ship->get().control = control;
+    return true;
 }
 
 void SimulationServer::tick()
 {
+    shipControlSystem_.update(world_.ships, config_);
     spawningSystem_.update(world_.ships, world_.projectiles, config_);
     gravitySystem_.update(world_.events);
     integrationSystem_.update(world_.projectiles, config_);

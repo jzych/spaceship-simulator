@@ -5,6 +5,7 @@
 #include "server/collision_system.hpp"
 #include "server/gravity_system.hpp"
 #include "server/integration_system.hpp"
+#include "server/ship_control_system.hpp"
 #include "server/simulation_config.hpp"
 #include "server/simulation_world.hpp"
 #include "server/snapshot_system.hpp"
@@ -23,7 +24,7 @@ class SimulationServer
     explicit SimulationServer(const SimulationConfig& config = {});
 
     shared::NetId spawnShip(const ShipSpawnRequest& request);
-    std::optional<shared::NetId> fireProjectile(shared::NetId shipNetId);
+    bool updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
     void tick();
 
     [[nodiscard]] shared::Tick tickCount() const;
@@ -39,6 +40,7 @@ class SimulationServer
     std::string lastSnapshotSummary_ {};
 
     SpawningSystem spawningSystem_ {};
+    ShipControlSystem shipControlSystem_ {};
     GravitySystem gravitySystem_ {};
     IntegrationSystem integrationSystem_ {};
     CollisionSystem collisionSystem_ {};
