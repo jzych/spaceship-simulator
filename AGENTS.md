@@ -24,6 +24,7 @@ This repository is configured for Codex with a lean, ECC-inspired workflow.
 5. Replace non-obvious numeric literals with named `constexpr` values that document intent.
 6. Preserve a clean command path for WSL users.
 7. After meaningful changes, run the smallest relevant verification step.
+8. Name tests using the `GivenWhenThen` pattern.
 
 ## Verification Order
 

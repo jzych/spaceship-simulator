@@ -2,6 +2,7 @@
 
 // Owns the authoritative world and runs the ordered server simulation tick.
 
+#include "server/bootstrap.hpp"
 #include "server/collision_system.hpp"
 #include "server/gravity_system.hpp"
 #include "server/integration_system.hpp"
@@ -22,6 +23,8 @@ class SimulationServer
 {
   public:
     explicit SimulationServer(const SimulationConfig& config = {});
+    SimulationServer(const SimulationConfig& config, BootstrapWorld worldPreset);
+    explicit SimulationServer(SimulationWorld initialWorld, const SimulationConfig& config = {});
 
     shared::NetId spawnShip(const ShipSpawnRequest& request);
     bool updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
@@ -36,6 +39,7 @@ class SimulationServer
 
     SimulationConfig config_ {};
     SimulationWorld world_ {};
+    bool accelerationsSeeded_ {false};
     shared::Tick tickCount_ {};
     std::string lastSnapshotSummary_ {};
 

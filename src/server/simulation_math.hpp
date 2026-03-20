@@ -14,9 +14,19 @@ inline shared::Vec3 add(const shared::Vec3& lhs, const shared::Vec3& rhs)
     return {lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z};
 }
 
+inline shared::Vec3 subtract(const shared::Vec3& lhs, const shared::Vec3& rhs)
+{
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
 inline shared::Vec3 scale(const shared::Vec3& value, double factor)
 {
     return {value.x * factor, value.y * factor, value.z * factor};
+}
+
+inline double magnitudeSquared(const shared::Vec3& value)
+{
+    return value.x * value.x + value.y * value.y + value.z * value.z;
 }
 
 inline shared::Quaternion conjugate(const shared::Quaternion& quaternion)
