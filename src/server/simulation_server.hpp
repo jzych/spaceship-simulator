@@ -39,6 +39,7 @@ class SimulationServer
 
     SimulationConfig config_ {};
     SimulationWorld world_ {};
+    bool accelerationsSeeded_ {false};
     shared::Tick tickCount_ {};
     std::string lastSnapshotSummary_ {};
 

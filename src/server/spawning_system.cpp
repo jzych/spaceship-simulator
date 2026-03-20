@@ -26,6 +26,7 @@ shared::NetId SpawningSystem::spawnShip(
         request.velocity,
         {},
         {},
+        {},
         makeMassProperties(config.shipDefaultMassKg),
         {config.shipDefaultRadiusMeters},
         {0.0, request.transform.orientation, false},

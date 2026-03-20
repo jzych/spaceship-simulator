@@ -22,6 +22,7 @@ struct ShipState
     shared::NetId netId {};
     shared::Transform transform {};
     shared::Velocity velocity {};
+    shared::Vec3 gravityAcceleration {};
     shared::Vec3 acceleration {};
     shared::Vec3 thrustAcceleration {};
     shared::MassProperties massProperties {};

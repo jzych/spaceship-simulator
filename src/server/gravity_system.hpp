@@ -6,6 +6,7 @@
 #include "server/simulation_world.hpp"
 
 #include <span>
+#include <vector>
 
 namespace spaceship::server
 {
@@ -13,10 +14,17 @@ namespace spaceship::server
 class GravitySystem
 {
   public:
-    void update(
-        std::span<MassiveBodyState> massiveBodies,
+    void update(std::span<MassiveBodyState> massiveBodies, double elapsedSeconds) const;
+    void seedAccelerations(
+        std::span<const MassiveBodyState> massiveBodies,
         std::span<ShipState> ships,
-        std::span<ProjectileState> projectiles,
+        std::span<ProjectileState> projectiles) const;
+    [[nodiscard]] shared::Vec3 computeGravityAcceleration(
+        const shared::Vec3& position,
+        std::span<const MassiveBodyState> massiveBodies) const;
+    [[nodiscard]] shared::Vec3 computeGravityAccelerationAtTime(
+        const shared::Vec3& position,
+        std::span<const MassiveBodyState> massiveBodies,
         double elapsedSeconds) const;
 
   private:

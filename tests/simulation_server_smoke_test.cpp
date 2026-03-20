@@ -156,8 +156,11 @@ TEST_F(SimulationServerSmokeTest, GivenSpawnRequestWhenShipSpawnsThenWorldContai
     EXPECT_DOUBLE_EQ(ship.transform.position.x, 10.0);
     EXPECT_DOUBLE_EQ(ship.transform.position.y, 20.0);
     EXPECT_DOUBLE_EQ(ship.velocity.linear.z, 300.0);
-    EXPECT_DOUBLE_EQ(ship.acceleration.x, 0.0);
+    EXPECT_DOUBLE_EQ(ship.acceleration.x, ship.gravityAcceleration.x);
+    EXPECT_DOUBLE_EQ(ship.acceleration.y, ship.gravityAcceleration.y);
+    EXPECT_DOUBLE_EQ(ship.acceleration.z, ship.gravityAcceleration.z);
     EXPECT_DOUBLE_EQ(ship.thrustAcceleration.x, 0.0);
+    EXPECT_NE(ship.gravityAcceleration.x, 0.0);
     EXPECT_DOUBLE_EQ(ship.massProperties.massKg, 1'000.0);
 }
 
@@ -369,6 +372,32 @@ TEST_F(EarthOnlyServerTest, GivenEarthOnlyWorldWhenShipStartsWithNoVelocityThenI
     EXPECT_NEAR(ship.transform.position.z, earth.transform.position.z, 1e-6);
     EXPECT_NEAR(ship.velocity.linear.y, 0.0, 1e-6);
     EXPECT_NEAR(ship.velocity.linear.z, 0.0, 1e-6);
+}
+
+TEST(SimulationServerGravityTest, GivenCustomWorldWithPreloadedShipWhenFirstTickRunsThenGravityAffectsFirstIntegration)
+{
+    spaceship::server::SimulationWorld world = spaceship::server::createInitialWorld(spaceship::server::BootstrapWorld::EarthOnly);
+    world.ships.push_back(spaceship::server::ShipState {
+        500U,
+        {{kSingleMassOrbitRadiusMeters, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{0.0, 0.0, 0.0}},
+        {},
+        {},
+        {},
+        {1'000.0, 1.0 / 1'000.0},
+        {5.0},
+        {0.0, {1.0, 0.0, 0.0, 0.0}, false},
+    });
+
+    spaceship::server::SimulationServer server {std::move(world)};
+
+    server.tick();
+
+    ASSERT_EQ(server.world().ships.size(), 1U);
+    const auto& ship = server.world().ships.front();
+    EXPECT_LT(ship.gravityAcceleration.x, 0.0);
+    EXPECT_LT(ship.acceleration.x, 0.0);
+    EXPECT_LT(ship.velocity.linear.x, 0.0);
 }
 
 TEST_F(EarthOnlyServerTest, GivenEarthOnlyWorldWhenShipAppliesProgradeThrustThenOrbitParametersChange)

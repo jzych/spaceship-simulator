@@ -1,6 +1,5 @@
 #include "server/integration_system.hpp"
 
-#include "server/gravity_field.hpp"
 #include "server/simulation_math.hpp"
 
 namespace spaceship::server
@@ -14,11 +13,13 @@ constexpr double kHalf = 0.5;
 void integrateShip(
     ShipState& ship,
     std::span<const MassiveBodyState> massiveBodies,
+    const GravitySystem& gravitySystem,
+    double nextElapsedSeconds,
     const SimulationConfig& config)
 {
     const double fixedDeltaSeconds = config.fixedDeltaSeconds;
     const double halfDeltaSquared = kHalf * fixedDeltaSeconds * fixedDeltaSeconds;
-    const shared::Vec3 currentAcceleration = ship.acceleration;
+    const shared::Vec3 currentAcceleration = add(ship.gravityAcceleration, ship.thrustAcceleration);
 
     ship.transform.position = add(
         ship.transform.position,
@@ -26,18 +27,21 @@ void integrateShip(
             scale(ship.velocity.linear, fixedDeltaSeconds),
             scale(currentAcceleration, halfDeltaSquared)));
 
-    const shared::Vec3 nextAcceleration = add(
-        ship.thrustAcceleration,
-        computeGravityAcceleration(ship.transform.position, massiveBodies));
+    const shared::Vec3 nextGravityAcceleration =
+        gravitySystem.computeGravityAccelerationAtTime(ship.transform.position, massiveBodies, nextElapsedSeconds);
+    const shared::Vec3 nextAcceleration = add(nextGravityAcceleration, ship.thrustAcceleration);
     ship.velocity.linear = add(
         ship.velocity.linear,
         scale(add(currentAcceleration, nextAcceleration), kHalf * fixedDeltaSeconds));
+    ship.gravityAcceleration = nextGravityAcceleration;
     ship.acceleration = nextAcceleration;
 }
 
 void integrateProjectile(
     ProjectileState& projectile,
     std::span<const MassiveBodyState> massiveBodies,
+    const GravitySystem& gravitySystem,
+    double nextElapsedSeconds,
     const SimulationConfig& config)
 {
     const double fixedDeltaSeconds = config.fixedDeltaSeconds;
@@ -50,7 +54,8 @@ void integrateProjectile(
             scale(projectile.velocity.linear, fixedDeltaSeconds),
             scale(currentAcceleration, halfDeltaSquared)));
 
-    const shared::Vec3 nextAcceleration = computeGravityAcceleration(projectile.transform.position, massiveBodies);
+    const shared::Vec3 nextAcceleration =
+        gravitySystem.computeGravityAccelerationAtTime(projectile.transform.position, massiveBodies, nextElapsedSeconds);
     projectile.velocity.linear = add(
         projectile.velocity.linear,
         scale(add(currentAcceleration, nextAcceleration), kHalf * fixedDeltaSeconds));
@@ -64,16 +69,18 @@ void IntegrationSystem::update(
     std::span<const MassiveBodyState> massiveBodies,
     std::span<ShipState> ships,
     std::span<ProjectileState> projectiles,
+    const GravitySystem& gravitySystem,
+    double nextElapsedSeconds,
     const SimulationConfig& config) const
 {
     for (ShipState& ship : ships)
     {
-        integrateShip(ship, massiveBodies, config);
+        integrateShip(ship, massiveBodies, gravitySystem, nextElapsedSeconds, config);
     }
 
     for (ProjectileState& projectile : projectiles)
     {
-        integrateProjectile(projectile, massiveBodies, config);
+        integrateProjectile(projectile, massiveBodies, gravitySystem, nextElapsedSeconds, config);
     }
 }
 
