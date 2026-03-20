@@ -10,6 +10,8 @@
 #include "server/snapshot_system.hpp"
 #include "server/spawning_system.hpp"
 
+#include <functional>
+#include <optional>
 #include <string>
 
 namespace spaceship::server
@@ -18,8 +20,10 @@ namespace spaceship::server
 class SimulationServer
 {
   public:
-    explicit SimulationServer(SimulationConfig config = {});
+    explicit SimulationServer(const SimulationConfig& config = {});
 
+    shared::NetId spawnShip(const ShipSpawnRequest& request);
+    std::optional<shared::NetId> fireProjectile(shared::NetId shipNetId);
     void tick();
 
     [[nodiscard]] shared::Tick tickCount() const;
@@ -27,6 +31,8 @@ class SimulationServer
     [[nodiscard]] const std::string& lastSnapshotSummary() const;
 
   private:
+    std::optional<std::reference_wrapper<ShipState>> findShip(shared::NetId shipNetId);
+
     SimulationConfig config_ {};
     SimulationWorld world_ {};
     shared::Tick tickCount_ {};

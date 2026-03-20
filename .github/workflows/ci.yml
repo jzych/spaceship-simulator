@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake lcov ninja-build
+          sudo apt-get install -y build-essential cmake gcovr lcov ninja-build
 
       - name: Configure with coverage
         run: |
@@ -42,12 +42,17 @@ jobs:
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
 
-      - name: Generate coverage report
+      - name: Generate Codecov coverage report
         run: |
           lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch,inconsistent
           lcov --remove coverage.info '/usr/*' '*/_deps/*' --output-file coverage.info
           lcov --list coverage.info
           test -s coverage.info
+
+      - name: Generate SonarCloud coverage report
+        run: |
+          gcovr -r . build --sonarqube sonar-coverage.xml
+          test -s sonar-coverage.xml
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
@@ -70,11 +75,10 @@ jobs:
             -Dsonar.exclusions=.ignore/**,build/**,docs/**,scripts/**
             -Dsonar.coverage.exclusions=tests/**,src/main.cpp
             -Dsonar.cfamily.compile-commands=build/compile_commands.json
-            -Dsonar.cfamily.gcov.reportsPath=build
+            -Dsonar.coverageReportPaths=sonar-coverage.xml
             -Dsonar.javascript.file.suffixes=-
             -Dsonar.typescript.file.suffixes=-
         env:
-          GITHUB_TOKEN: ${{ github.token }}
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
   codex-pr-review:
@@ -92,5 +96,4 @@ jobs:
       - name: Run Codex PR review
         uses: openai/codex-action@v1
         with:
-          github-token: ${{ github.token }}
           openai-api-key: ${{ env.OPENAI_API_KEY }}
