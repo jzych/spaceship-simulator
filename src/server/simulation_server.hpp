@@ -20,10 +20,10 @@ namespace spaceship::server
 class SimulationServer
 {
   public:
-    explicit SimulationServer(SimulationConfig config = {});
+    explicit SimulationServer(const SimulationConfig& config = {});
 
-    ShipState& spawnShip(const ShipSpawnRequest& request);
-    ProjectileState* fireProjectile(shared::NetId shipNetId);
+    shared::NetId spawnShip(const ShipSpawnRequest& request);
+    std::optional<shared::NetId> fireProjectile(shared::NetId shipNetId);
     void tick();
 
     [[nodiscard]] shared::Tick tickCount() const;

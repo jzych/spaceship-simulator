@@ -7,25 +7,25 @@
 namespace spaceship::server
 {
 
-SimulationServer::SimulationServer(SimulationConfig config)
+SimulationServer::SimulationServer(const SimulationConfig& config)
     : config_(config), world_(createInitialWorld())
 {
 }
 
-ShipState& SimulationServer::spawnShip(const ShipSpawnRequest& request)
+shared::NetId SimulationServer::spawnShip(const ShipSpawnRequest& request)
 {
     return spawningSystem_.spawnShip(world_.ships, request, config_);
 }
 
-ProjectileState* SimulationServer::fireProjectile(shared::NetId shipNetId)
+std::optional<shared::NetId> SimulationServer::fireProjectile(shared::NetId shipNetId)
 {
     const auto ship = findShip(shipNetId);
     if (!ship.has_value())
     {
-        return nullptr;
+        return std::nullopt;
     }
 
-    return &spawningSystem_.spawnProjectile(world_.projectiles, ship->get(), config_);
+    return spawningSystem_.spawnProjectile(world_.projectiles, ship->get(), config_);
 }
 
 void SimulationServer::tick()

@@ -37,9 +37,11 @@ TEST(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
         {{100.0, 200.0, 300.0}},
     };
 
-    const auto& ship = server.spawnShip(request);
+    const auto shipNetId = server.spawnShip(request);
 
     ASSERT_EQ(server.world().ships.size(), 1U);
+    const auto& ship = server.world().ships.back();
+    EXPECT_EQ(shipNetId, 42U);
     EXPECT_EQ(ship.netId, 42U);
     EXPECT_DOUBLE_EQ(ship.transform.position.x, 10.0);
     EXPECT_DOUBLE_EQ(ship.transform.position.y, 20.0);
@@ -58,14 +60,26 @@ TEST(SimulationServerSmokeTest, FireProjectileCreatesProjectileFromShipState)
     };
 
     server.spawnShip(request);
-    const auto* projectile = server.fireProjectile(7U);
+    const auto projectileNetId = server.fireProjectile(7U);
 
-    ASSERT_NE(projectile, nullptr);
+    ASSERT_TRUE(projectileNetId.has_value());
     ASSERT_EQ(server.world().projectiles.size(), 1U);
-    EXPECT_EQ(projectile->params.ownerNetId, 7U);
-    EXPECT_DOUBLE_EQ(projectile->transform.position.x, 1.0);
-    EXPECT_DOUBLE_EQ(projectile->transform.orientation.w, 1.0);
-    EXPECT_DOUBLE_EQ(projectile->velocity.linear.x, 1'010.0);
-    EXPECT_DOUBLE_EQ(projectile->velocity.linear.y, 20.0);
-    EXPECT_DOUBLE_EQ(projectile->params.ttlSeconds, 10.0);
+    const auto& projectile = server.world().projectiles.back();
+    EXPECT_EQ(projectileNetId.value(), projectile.netId);
+    EXPECT_EQ(projectile.params.ownerNetId, 7U);
+    EXPECT_DOUBLE_EQ(projectile.transform.position.x, 1.0);
+    EXPECT_DOUBLE_EQ(projectile.transform.orientation.w, 1.0);
+    EXPECT_DOUBLE_EQ(projectile.velocity.linear.x, 1'010.0);
+    EXPECT_DOUBLE_EQ(projectile.velocity.linear.y, 20.0);
+    EXPECT_DOUBLE_EQ(projectile.params.ttlSeconds, 10.0);
+}
+
+TEST(SimulationServerSmokeTest, FireProjectileReturnsEmptyWhenShipDoesNotExist)
+{
+    spaceship::server::SimulationServer server;
+
+    const auto projectileNetId = server.fireProjectile(99U);
+
+    EXPECT_FALSE(projectileNetId.has_value());
+    EXPECT_TRUE(server.world().projectiles.empty());
 }

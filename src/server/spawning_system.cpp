@@ -62,7 +62,7 @@ shared::Vec3 forwardDirection(const shared::Quaternion& orientation)
 
 } // namespace
 
-ShipState& SpawningSystem::spawnShip(
+shared::NetId SpawningSystem::spawnShip(
     std::vector<ShipState>& ships,
     const ShipSpawnRequest& request,
     const SimulationConfig& config) const
@@ -76,19 +76,20 @@ ShipState& SpawningSystem::spawnShip(
         {0.0, request.transform.orientation, false},
     });
 
-    return ships.back();
+    return request.netId;
 }
 
-ProjectileState& SpawningSystem::spawnProjectile(
+shared::NetId SpawningSystem::spawnProjectile(
     std::vector<ProjectileState>& projectiles,
     const ShipState& ship,
     const SimulationConfig& config)
 {
+    const shared::NetId projectileNetId = nextProjectileNetId_++;
     const shared::Vec3 muzzleVelocity =
         scale(forwardDirection(ship.transform.orientation), config.projectileMuzzleSpeedMetersPerSecond);
 
     projectiles.push_back(ProjectileState {
-        nextProjectileNetId_++,
+        projectileNetId,
         {ship.transform.position, ship.transform.orientation},
         {add(ship.velocity.linear, muzzleVelocity)},
         makeMassProperties(config.projectileMassKg),
@@ -96,7 +97,7 @@ ProjectileState& SpawningSystem::spawnProjectile(
         {config.projectileDefaultTtlSeconds, ship.netId},
     });
 
-    return projectiles.back();
+    return projectileNetId;
 }
 
 void SpawningSystem::update(

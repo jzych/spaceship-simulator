@@ -20,11 +20,11 @@ struct ShipSpawnRequest
 class SpawningSystem
 {
   public:
-    ShipState& spawnShip(
+    shared::NetId spawnShip(
         std::vector<ShipState>& ships,
         const ShipSpawnRequest& request,
         const SimulationConfig& config) const;
-    ProjectileState& spawnProjectile(
+    shared::NetId spawnProjectile(
         std::vector<ProjectileState>& projectiles,
         const ShipState& ship,
         const SimulationConfig& config);
