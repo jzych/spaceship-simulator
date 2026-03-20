@@ -79,7 +79,6 @@ jobs:
             -Dsonar.javascript.file.suffixes=-
             -Dsonar.typescript.file.suffixes=-
         env:
-          GITHUB_TOKEN: ${{ github.token }}
           SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
 
   codex-pr-review:
