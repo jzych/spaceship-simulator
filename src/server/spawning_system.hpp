@@ -10,6 +10,9 @@
 namespace spaceship::server
 {
 
+inline constexpr shared::NetId kFirstShipNetId = 100U;
+inline constexpr shared::NetId kFirstProjectileNetId = 10'000U;
+
 struct ShipSpawnRequest
 {
     shared::Transform transform {};
@@ -33,8 +36,8 @@ class SpawningSystem
         const SimulationConfig& config);
 
   private:
-    shared::NetId nextShipNetId_ {100U};
-    shared::NetId nextProjectileNetId_ {10'000U};
+    shared::NetId nextShipNetId_ {kFirstShipNetId};
+    shared::NetId nextProjectileNetId_ {kFirstProjectileNetId};
 };
 
 } // namespace spaceship::server

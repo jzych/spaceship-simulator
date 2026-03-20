@@ -2,9 +2,14 @@
 
 #include <gtest/gtest.h>
 
-TEST(SimulationServerSmokeTest, BootstrapsThreeMassiveBodies)
+class SimulationServerSmokeTest : public ::testing::Test
 {
-    spaceship::server::SimulationServer server;
+  protected:
+    spaceship::server::SimulationServer server {};
+};
+
+TEST_F(SimulationServerSmokeTest, BootstrapsThreeMassiveBodies)
+{
 
     ASSERT_EQ(server.world().massiveBodies.size(), 3U);
     EXPECT_EQ(server.world().massiveBodies[0].definition.name, "Sun");
@@ -17,19 +22,17 @@ TEST(SimulationServerSmokeTest, BootstrapsThreeMassiveBodies)
     EXPECT_NE(server.world().massiveBodies[2].velocity.linear.y, 0.0);
 }
 
-TEST(SimulationServerSmokeTest, TickAdvancesServerClock)
+TEST_F(SimulationServerSmokeTest, TickAdvancesServerClock)
 {
-    spaceship::server::SimulationServer server;
-
     server.tick();
 
     EXPECT_EQ(server.tickCount(), 1U);
     EXPECT_TRUE(server.lastSnapshotSummary().empty());
 }
 
-TEST(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
+TEST_F(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
 {
-    spaceship::server::SimulationServer server;
+    constexpr spaceship::shared::NetId kExpectedFirstShipNetId = spaceship::server::kFirstShipNetId;
 
     const spaceship::server::ShipSpawnRequest request {
         {{10.0, 20.0, 30.0}, {1.0, 0.0, 0.0, 0.0}},
@@ -40,18 +43,16 @@ TEST(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
 
     ASSERT_EQ(server.world().ships.size(), 1U);
     const auto& ship = server.world().ships.back();
-    EXPECT_EQ(shipNetId, 100U);
-    EXPECT_EQ(ship.netId, 100U);
+    EXPECT_EQ(shipNetId, kExpectedFirstShipNetId);
+    EXPECT_EQ(ship.netId, kExpectedFirstShipNetId);
     EXPECT_DOUBLE_EQ(ship.transform.position.x, 10.0);
     EXPECT_DOUBLE_EQ(ship.transform.position.y, 20.0);
     EXPECT_DOUBLE_EQ(ship.velocity.linear.z, 300.0);
     EXPECT_DOUBLE_EQ(ship.massProperties.massKg, 1'000.0);
 }
 
-TEST(SimulationServerSmokeTest, FireProjectileCreatesProjectileFromShipState)
+TEST_F(SimulationServerSmokeTest, FireProjectileCreatesProjectileFromShipState)
 {
-    spaceship::server::SimulationServer server;
-
     const spaceship::server::ShipSpawnRequest request {
         {{1.0, 2.0, 3.0}, {1.0, 0.0, 0.0, 0.0}},
         {{10.0, 20.0, 30.0}},
@@ -72,9 +73,10 @@ TEST(SimulationServerSmokeTest, FireProjectileCreatesProjectileFromShipState)
     EXPECT_DOUBLE_EQ(projectile.params.ttlSeconds, 10.0);
 }
 
-TEST(SimulationServerSmokeTest, SpawnShipAssignsSequentialShipIds)
+TEST_F(SimulationServerSmokeTest, SpawnShipAssignsSequentialShipIds)
 {
-    spaceship::server::SimulationServer server;
+    constexpr spaceship::shared::NetId kExpectedFirstShipNetId = spaceship::server::kFirstShipNetId;
+    constexpr spaceship::shared::NetId kExpectedSecondShipNetId = spaceship::server::kFirstShipNetId + 1U;
 
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
@@ -84,18 +86,18 @@ TEST(SimulationServerSmokeTest, SpawnShipAssignsSequentialShipIds)
     const auto firstShipNetId = server.spawnShip(request);
     const auto secondShipNetId = server.spawnShip(request);
 
-    EXPECT_EQ(firstShipNetId, 100U);
-    EXPECT_EQ(secondShipNetId, 101U);
+    EXPECT_EQ(firstShipNetId, kExpectedFirstShipNetId);
+    EXPECT_EQ(secondShipNetId, kExpectedSecondShipNetId);
     ASSERT_EQ(server.world().ships.size(), 2U);
-    EXPECT_EQ(server.world().ships[0].netId, 100U);
-    EXPECT_EQ(server.world().ships[1].netId, 101U);
+    EXPECT_EQ(server.world().ships[0].netId, kExpectedFirstShipNetId);
+    EXPECT_EQ(server.world().ships[1].netId, kExpectedSecondShipNetId);
 }
 
-TEST(SimulationServerSmokeTest, FireProjectileReturnsEmptyWhenShipDoesNotExist)
+TEST_F(SimulationServerSmokeTest, FireProjectileReturnsEmptyWhenShipDoesNotExist)
 {
-    spaceship::server::SimulationServer server;
+    constexpr spaceship::shared::NetId kMissingShipNetId = 99U;
 
-    const auto projectileNetId = server.fireProjectile(99U);
+    const auto projectileNetId = server.fireProjectile(kMissingShipNetId);
 
     EXPECT_FALSE(projectileNetId.has_value());
     EXPECT_TRUE(server.world().projectiles.empty());
