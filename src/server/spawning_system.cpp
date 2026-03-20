@@ -65,10 +65,11 @@ shared::Vec3 forwardDirection(const shared::Quaternion& orientation)
 shared::NetId SpawningSystem::spawnShip(
     std::vector<ShipState>& ships,
     const ShipSpawnRequest& request,
-    const SimulationConfig& config) const
+    const SimulationConfig& config)
 {
+    const shared::NetId shipNetId = nextShipNetId_++;
     ships.push_back(ShipState {
-        request.netId,
+        shipNetId,
         request.transform,
         request.velocity,
         makeMassProperties(config.shipDefaultMassKg),
@@ -76,7 +77,7 @@ shared::NetId SpawningSystem::spawnShip(
         {0.0, request.transform.orientation, false},
     });
 
-    return request.netId;
+    return shipNetId;
 }
 
 shared::NetId SpawningSystem::spawnProjectile(

@@ -12,7 +12,6 @@ namespace spaceship::server
 
 struct ShipSpawnRequest
 {
-    shared::NetId netId {};
     shared::Transform transform {};
     shared::Velocity velocity {};
 };
@@ -23,7 +22,7 @@ class SpawningSystem
     shared::NetId spawnShip(
         std::vector<ShipState>& ships,
         const ShipSpawnRequest& request,
-        const SimulationConfig& config) const;
+        const SimulationConfig& config);
     shared::NetId spawnProjectile(
         std::vector<ProjectileState>& projectiles,
         const ShipState& ship,
@@ -34,6 +33,7 @@ class SpawningSystem
         const SimulationConfig& config);
 
   private:
+    shared::NetId nextShipNetId_ {100U};
     shared::NetId nextProjectileNetId_ {10'000U};
 };
 

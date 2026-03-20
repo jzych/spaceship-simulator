@@ -32,7 +32,6 @@ TEST(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
     spaceship::server::SimulationServer server;
 
     const spaceship::server::ShipSpawnRequest request {
-        42U,
         {{10.0, 20.0, 30.0}, {1.0, 0.0, 0.0, 0.0}},
         {{100.0, 200.0, 300.0}},
     };
@@ -41,8 +40,8 @@ TEST(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
 
     ASSERT_EQ(server.world().ships.size(), 1U);
     const auto& ship = server.world().ships.back();
-    EXPECT_EQ(shipNetId, 42U);
-    EXPECT_EQ(ship.netId, 42U);
+    EXPECT_EQ(shipNetId, 100U);
+    EXPECT_EQ(ship.netId, 100U);
     EXPECT_DOUBLE_EQ(ship.transform.position.x, 10.0);
     EXPECT_DOUBLE_EQ(ship.transform.position.y, 20.0);
     EXPECT_DOUBLE_EQ(ship.velocity.linear.z, 300.0);
@@ -54,24 +53,42 @@ TEST(SimulationServerSmokeTest, FireProjectileCreatesProjectileFromShipState)
     spaceship::server::SimulationServer server;
 
     const spaceship::server::ShipSpawnRequest request {
-        7U,
         {{1.0, 2.0, 3.0}, {1.0, 0.0, 0.0, 0.0}},
         {{10.0, 20.0, 30.0}},
     };
 
-    server.spawnShip(request);
-    const auto projectileNetId = server.fireProjectile(7U);
+    const auto shipNetId = server.spawnShip(request);
+    const auto projectileNetId = server.fireProjectile(shipNetId);
 
     ASSERT_TRUE(projectileNetId.has_value());
     ASSERT_EQ(server.world().projectiles.size(), 1U);
     const auto& projectile = server.world().projectiles.back();
     EXPECT_EQ(projectileNetId.value(), projectile.netId);
-    EXPECT_EQ(projectile.params.ownerNetId, 7U);
+    EXPECT_EQ(projectile.params.ownerNetId, shipNetId);
     EXPECT_DOUBLE_EQ(projectile.transform.position.x, 1.0);
     EXPECT_DOUBLE_EQ(projectile.transform.orientation.w, 1.0);
     EXPECT_DOUBLE_EQ(projectile.velocity.linear.x, 1'010.0);
     EXPECT_DOUBLE_EQ(projectile.velocity.linear.y, 20.0);
     EXPECT_DOUBLE_EQ(projectile.params.ttlSeconds, 10.0);
+}
+
+TEST(SimulationServerSmokeTest, SpawnShipAssignsSequentialShipIds)
+{
+    spaceship::server::SimulationServer server;
+
+    const spaceship::server::ShipSpawnRequest request {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{0.0, 0.0, 0.0}},
+    };
+
+    const auto firstShipNetId = server.spawnShip(request);
+    const auto secondShipNetId = server.spawnShip(request);
+
+    EXPECT_EQ(firstShipNetId, 100U);
+    EXPECT_EQ(secondShipNetId, 101U);
+    ASSERT_EQ(server.world().ships.size(), 2U);
+    EXPECT_EQ(server.world().ships[0].netId, 100U);
+    EXPECT_EQ(server.world().ships[1].netId, 101U);
 }
 
 TEST(SimulationServerSmokeTest, FireProjectileReturnsEmptyWhenShipDoesNotExist)
