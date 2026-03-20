@@ -3,7 +3,6 @@
 #include "server/bootstrap.hpp"
 #include "server/simulation_math.hpp"
 
-#include <algorithm>
 #include <cmath>
 #include <numbers>
 
