@@ -3,12 +3,23 @@
 #include "server/bootstrap.hpp"
 
 #include <algorithm>
+#include <utility>
 
 namespace spaceship::server
 {
 
 SimulationServer::SimulationServer(const SimulationConfig& config)
-    : config_(config), world_(createInitialWorld())
+    : config_(config), world_(createInitialWorld(BootstrapWorld::Default))
+{
+}
+
+SimulationServer::SimulationServer(const SimulationConfig& config, BootstrapWorld worldPreset)
+    : config_(config), world_(createInitialWorld(worldPreset))
+{
+}
+
+SimulationServer::SimulationServer(SimulationWorld initialWorld, const SimulationConfig& config)
+    : config_(config), world_(std::move(initialWorld))
 {
 }
 
@@ -31,10 +42,12 @@ bool SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::
 
 void SimulationServer::tick()
 {
+    const double elapsedSeconds = static_cast<double>(tickCount_ + 1U) * config_.fixedDeltaSeconds;
+
     shipControlSystem_.update(world_.ships, config_);
+    gravitySystem_.update(world_.massiveBodies, world_.ships, world_.projectiles, elapsedSeconds);
+    integrationSystem_.update(world_.massiveBodies, world_.ships, world_.projectiles, config_);
     spawningSystem_.update(world_.ships, world_.projectiles, config_);
-    gravitySystem_.update(world_.events);
-    integrationSystem_.update(world_.projectiles, config_);
     collisionSystem_.update(world_.projectiles);
 
     ++tickCount_;

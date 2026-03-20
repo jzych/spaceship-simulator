@@ -13,7 +13,11 @@ namespace spaceship::server
 class IntegrationSystem
 {
   public:
-    void update(std::span<ProjectileState> projectiles, const SimulationConfig& config) const;
+    void update(
+        std::span<const MassiveBodyState> massiveBodies,
+        std::span<ShipState> ships,
+        std::span<ProjectileState> projectiles,
+        const SimulationConfig& config) const;
 };
 
 } // namespace spaceship::server
