@@ -12,29 +12,44 @@ SimulationServer::SimulationServer(const SimulationConfig& config)
 {
 }
 
-shared::NetId SimulationServer::spawnShip(const ShipSpawnRequest& request)
+SimulationServer::SimulationServer(SimulationWorld world, const SimulationConfig& config)
+    : config_(config), world_(std::move(world))
 {
-    return spawningSystem_.spawnShip(world_.ships, request, config_);
 }
 
-bool SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control)
+shared::NetId SimulationServer::spawnShip(const ShipSpawnRequest& request)
+{
+    return spawningSystem_.spawnShip(world_.ships, request, config_, world_.massiveBodies);
+}
+
+void SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control)
 {
     const auto ship = findShip(shipNetId);
-    if (!ship.has_value())
-    {
-        return false;
-    }
-
-    ship->get().control = control;
-    return true;
+    if (ship.has_value())
+        ship->get().control = control;
 }
 
 void SimulationServer::tick()
 {
+    massiveBodyMotionSystem_.update(world_.massiveBodies, elapsedSeconds_);
+    elapsedSeconds_ += config_.fixedDeltaSeconds;
+
+    spawningSystem_.update(world_.ships, world_.projectiles, world_.massiveBodies, config_);
+
+    // ship.acceleration carries gravity(x_n) from the end of the previous tick.
+    // ShipControlSystem writes fresh thrust into ship.thrustAcceleration.
+    // integratePositions computes a_n = gravity(x_n) + thrust, saves it, advances x.
     shipControlSystem_.update(world_.ships, config_);
-    spawningSystem_.update(world_.ships, world_.projectiles, config_);
-    gravitySystem_.update(world_.events);
-    integrationSystem_.update(world_.projectiles, config_);
+    integrationSystem_.integratePositions(world_.ships, world_.projectiles, config_);
+
+    // One gravity call per tick: gravity(x_{n+1}) stored in ship.acceleration.
+    // integrateVelocities computes a_{n+1} = gravity(x_{n+1}) + thrust (same tick).
+    gravitySystem_.update(world_.massiveBodies, world_.ships, world_.projectiles);
+
+    // Verlet phase 2: v_{n+1} = v_n + 0.5*(a_n + a_{n+1})*dt
+    integrationSystem_.integrateVelocities(world_.ships, world_.projectiles, config_);
+
+    integrationSystem_.decrementTtl(world_.projectiles, config_);
     collisionSystem_.update(world_.projectiles);
 
     ++tickCount_;

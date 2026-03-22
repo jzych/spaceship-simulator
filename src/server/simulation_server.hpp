@@ -5,6 +5,7 @@
 #include "server/collision_system.hpp"
 #include "server/gravity_system.hpp"
 #include "server/integration_system.hpp"
+#include "server/massive_body_motion_system.hpp"
 #include "server/ship_control_system.hpp"
 #include "server/simulation_config.hpp"
 #include "server/simulation_world.hpp"
@@ -22,9 +23,10 @@ class SimulationServer
 {
   public:
     explicit SimulationServer(const SimulationConfig& config = {});
+    SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
 
     shared::NetId spawnShip(const ShipSpawnRequest& request);
-    bool updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
+    void updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
     void tick();
 
     [[nodiscard]] shared::Tick tickCount() const;
@@ -37,8 +39,10 @@ class SimulationServer
     SimulationConfig config_ {};
     SimulationWorld world_ {};
     shared::Tick tickCount_ {};
+    double elapsedSeconds_ {};
     std::string lastSnapshotSummary_ {};
 
+    MassiveBodyMotionSystem massiveBodyMotionSystem_ {};
     SpawningSystem spawningSystem_ {};
     ShipControlSystem shipControlSystem_ {};
     GravitySystem gravitySystem_ {};

@@ -5,6 +5,7 @@
 #include "server/simulation_config.hpp"
 #include "server/simulation_world.hpp"
 
+#include <optional>
 #include <span>
 
 namespace spaceship::server
@@ -17,6 +18,7 @@ struct ShipSpawnRequest
 {
     shared::Transform transform {};
     shared::Velocity velocity {};
+    std::optional<shared::Vec3> initialAcceleration {};
 };
 
 class SpawningSystem
@@ -25,14 +27,17 @@ class SpawningSystem
     shared::NetId spawnShip(
         std::vector<ShipState>& ships,
         const ShipSpawnRequest& request,
-        const SimulationConfig& config);
+        const SimulationConfig& config,
+        std::span<const MassiveBodyState> massiveBodies);
     shared::NetId spawnProjectile(
         std::vector<ProjectileState>& projectiles,
         const ShipState& ship,
-        const SimulationConfig& config);
+        const SimulationConfig& config,
+        std::span<const MassiveBodyState> massiveBodies);
     void update(
         std::span<ShipState> ships,
         std::vector<ProjectileState>& projectiles,
+        std::span<const MassiveBodyState> massiveBodies,
         const SimulationConfig& config);
 
   private:

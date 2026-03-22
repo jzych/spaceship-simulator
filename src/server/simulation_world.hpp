@@ -10,11 +10,20 @@
 namespace spaceship::server
 {
 
+struct OrbitalParams
+{
+    double orbitRadiusMeters {};           // 0 = stationary (Sun)
+    double angularVelocityRadPerSec {};
+    double initialPhaseRadians {};
+    shared::NetId centerNetId {};          // NetId of the body being orbited
+};
+
 struct MassiveBodyState
 {
     shared::MassiveBodyDefinition definition {};
     shared::Transform transform {};
     shared::Velocity velocity {};
+    OrbitalParams orbital {};
 };
 
 struct ShipState
@@ -25,7 +34,9 @@ struct ShipState
     shared::MassProperties massProperties {};
     shared::ColliderSphere collider {};
     shared::ShipControl control {};
-    shared::Vec3 acceleration {};
+    shared::Vec3 acceleration {};          // gravity only — carried forward each tick
+    shared::Vec3 thrustAcceleration {};    // thrust only — recomputed each tick by ShipControlSystem
+    shared::Vec3 previousAcceleration {};
 };
 
 struct ProjectileState
@@ -36,7 +47,9 @@ struct ProjectileState
     shared::MassProperties massProperties {};
     shared::ColliderSphere collider {};
     shared::ProjectileParams params {};
-    shared::Vec3 acceleration {};
+    shared::Vec3 acceleration {};          // gravity only — carried forward each tick
+    shared::Vec3 thrustAcceleration {};    // always zero for projectiles
+    shared::Vec3 previousAcceleration {};
 };
 
 struct PendingEvent

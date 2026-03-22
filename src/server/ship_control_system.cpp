@@ -23,10 +23,8 @@ void ShipControlSystem::update(std::span<ShipState> ships, const SimulationConfi
         const double throttle = std::clamp(ship.control.throttle, kMinimumThrottle, kMaximumThrottle);
         const double thrustNewtons = throttle * config.shipMaxThrustNewtons;
         const double accelerationMetersPerSecondSquared = thrustNewtons * ship.massProperties.inverseMass;
-        const shared::Vec3 thrustVelocityDelta =
-            scale(forwardDirection(ship.transform.orientation), accelerationMetersPerSecondSquared * config.fixedDeltaSeconds);
-
-        ship.velocity.linear = add(ship.velocity.linear, thrustVelocityDelta);
+        ship.thrustAcceleration =
+            scale(forwardDirection(ship.transform.orientation), accelerationMetersPerSecondSquared);
     }
 }
 

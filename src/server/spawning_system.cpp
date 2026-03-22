@@ -1,4 +1,5 @@
 #include "server/spawning_system.hpp"
+#include "server/gravity_system.hpp"
 #include "server/simulation_math.hpp"
 
 namespace spaceship::server
@@ -17,9 +18,14 @@ shared::MassProperties makeMassProperties(double massKg)
 shared::NetId SpawningSystem::spawnShip(
     std::vector<ShipState>& ships,
     const ShipSpawnRequest& request,
-    const SimulationConfig& config)
+    const SimulationConfig& config,
+    std::span<const MassiveBodyState> massiveBodies)
 {
     const shared::NetId shipNetId = nextShipNetId_++;
+    const shared::Vec3 accel = request.initialAcceleration.has_value()
+        ? *request.initialAcceleration
+        : computeGravitationalAcceleration(request.transform.position, massiveBodies);
+
     ships.push_back(ShipState {
         shipNetId,
         request.transform,
@@ -27,6 +33,9 @@ shared::NetId SpawningSystem::spawnShip(
         makeMassProperties(config.shipDefaultMassKg),
         {config.shipDefaultRadiusMeters},
         {0.0, request.transform.orientation, false},
+        accel,  // acceleration (gravity, carry-forward)
+        {},     // thrustAcceleration (zero until first ShipControlSystem update)
+        {},     // previousAcceleration
     });
 
     return shipNetId;
@@ -35,11 +44,14 @@ shared::NetId SpawningSystem::spawnShip(
 shared::NetId SpawningSystem::spawnProjectile(
     std::vector<ProjectileState>& projectiles,
     const ShipState& ship,
-    const SimulationConfig& config)
+    const SimulationConfig& config,
+    std::span<const MassiveBodyState> massiveBodies)
 {
     const shared::NetId projectileNetId = nextProjectileNetId_++;
     const shared::Vec3 muzzleVelocity =
         scale(forwardDirection(ship.transform.orientation), config.projectileMuzzleSpeedMetersPerSecond);
+    const shared::Vec3 accel =
+        computeGravitationalAcceleration(ship.transform.position, massiveBodies);
 
     projectiles.push_back(ProjectileState {
         projectileNetId,
@@ -48,6 +60,9 @@ shared::NetId SpawningSystem::spawnProjectile(
         makeMassProperties(config.projectileMassKg),
         {config.projectileRadiusMeters},
         {config.projectileDefaultTtlSeconds, ship.netId},
+        accel,  // acceleration (gravity, carry-forward)
+        {},     // thrustAcceleration (always zero for projectiles)
+        {},     // previousAcceleration
     });
 
     return projectileNetId;
@@ -56,13 +71,14 @@ shared::NetId SpawningSystem::spawnProjectile(
 void SpawningSystem::update(
     std::span<ShipState> ships,
     std::vector<ProjectileState>& projectiles,
+    std::span<const MassiveBodyState> massiveBodies,
     const SimulationConfig& config)
 {
     for (auto& ship : ships)
     {
         if (ship.control.fire)
         {
-            spawnProjectile(projectiles, ship, config);
+            spawnProjectile(projectiles, ship, config, massiveBodies);
             ship.control.fire = false;
         }
     }
