@@ -10,11 +10,20 @@
 namespace spaceship::server
 {
 
+struct OrbitalParams
+{
+    double orbitRadiusMeters {};           // 0 = stationary (Sun)
+    double angularVelocityRadPerSec {};
+    double initialPhaseRadians {};
+    shared::NetId centerNetId {};          // NetId of the body being orbited
+};
+
 struct MassiveBodyState
 {
     shared::MassiveBodyDefinition definition {};
     shared::Transform transform {};
     shared::Velocity velocity {};
+    OrbitalParams orbital {};
 };
 
 struct ShipState

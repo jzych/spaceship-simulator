@@ -12,6 +12,11 @@ SimulationServer::SimulationServer(const SimulationConfig& config)
 {
 }
 
+SimulationServer::SimulationServer(SimulationWorld world, const SimulationConfig& config)
+    : config_(config), world_(std::move(world))
+{
+}
+
 shared::NetId SimulationServer::spawnShip(const ShipSpawnRequest& request)
 {
     return spawningSystem_.spawnShip(world_.ships, request, config_);
@@ -31,6 +36,9 @@ bool SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::
 
 void SimulationServer::tick()
 {
+    massiveBodyMotionSystem_.update(world_.massiveBodies, elapsedSeconds_);
+    elapsedSeconds_ += config_.fixedDeltaSeconds;
+
     shipControlSystem_.update(world_.ships, config_);
     spawningSystem_.update(world_.ships, world_.projectiles, config_);
     gravitySystem_.update(world_.events);

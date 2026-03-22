@@ -1,7 +1,10 @@
+#include "server/bootstrap.hpp"
 #include "server/simulation_math.hpp"
 #include "server/simulation_server.hpp"
+#include "server/simulation_world.hpp"
 
 #include <gtest/gtest.h>
+#include <cmath>
 #include <numbers>
 
 namespace
@@ -296,4 +299,134 @@ TEST(SimulationMathTest, ProjectileStateAccelerationDefaultsToZero)
     EXPECT_DOUBLE_EQ(projectile.acceleration.x, 0.0);
     EXPECT_DOUBLE_EQ(projectile.acceleration.y, 0.0);
     EXPECT_DOUBLE_EQ(projectile.acceleration.z, 0.0);
+}
+
+// ---------------------------------------------------------------------------
+// MassiveBodyMotionTest — full Sun/Earth/Moon world
+// ---------------------------------------------------------------------------
+
+class MassiveBodyMotionTest : public ::testing::Test
+{
+  protected:
+    spaceship::server::SimulationServer server {};
+};
+
+TEST_F(MassiveBodyMotionTest, SunRemainsAtOriginAfterManyTicks)
+{
+    for (int i = 0; i < 3600; ++i)
+        server.tick();
+
+    const auto& sun = server.world().massiveBodies[0];
+    EXPECT_NEAR(sun.transform.position.x, 0.0, 1.0);
+    EXPECT_NEAR(sun.transform.position.y, 0.0, 1.0);
+    EXPECT_NEAR(sun.transform.position.z, 0.0, 1.0);
+}
+
+TEST_F(MassiveBodyMotionTest, EarthAngularPositionAdvancesAfterOneSimulatedMinute)
+{
+    // t=0: Earth at angle 0 (on +x axis)
+    const double initialAngle =
+        std::atan2(server.world().massiveBodies[1].transform.position.y,
+                   server.world().massiveBodies[1].transform.position.x);
+
+    for (int i = 0; i < 3600; ++i)
+        server.tick();
+
+    const auto& earth = server.world().massiveBodies[1];
+    const double finalAngle = std::atan2(earth.transform.position.y, earth.transform.position.x);
+
+    EXPECT_GT(finalAngle, initialAngle); // angle increases (counter-clockwise orbit)
+}
+
+TEST_F(MassiveBodyMotionTest, EarthOrbitalRadiusUnchangedAfterOneSimulatedMinute)
+{
+    const double initialRadius = spaceship::server::length(
+        server.world().massiveBodies[1].transform.position);
+
+    for (int i = 0; i < 3600; ++i)
+        server.tick();
+
+    const auto& earth = server.world().massiveBodies[1];
+    const double finalRadius = spaceship::server::length(earth.transform.position);
+
+    EXPECT_NEAR(finalRadius, initialRadius, 1.0); // radius stable to 1 m
+}
+
+TEST_F(MassiveBodyMotionTest, MoonEarthDistanceStableOver3600Ticks)
+{
+    constexpr double kMoonDistanceMeters = 384'400'000.0;
+    constexpr double kTolerance = kMoonDistanceMeters * 0.01; // 1%
+
+    for (int i = 0; i < 3600; ++i)
+        server.tick();
+
+    const auto& earth = server.world().massiveBodies[1];
+    const auto& moon = server.world().massiveBodies[2];
+    const auto diff = spaceship::server::subtract(moon.transform.position, earth.transform.position);
+
+    EXPECT_NEAR(spaceship::server::length(diff), kMoonDistanceMeters, kTolerance);
+}
+
+TEST_F(MassiveBodyMotionTest, MoonAngularPositionRelativeToEarthAdvances)
+{
+    const auto& earth0 = server.world().massiveBodies[1];
+    const auto& moon0 = server.world().massiveBodies[2];
+    const auto diff0 = spaceship::server::subtract(moon0.transform.position, earth0.transform.position);
+    const double initialAngle = std::atan2(diff0.y, diff0.x);
+
+    for (int i = 0; i < 3600; ++i)
+        server.tick();
+
+    const auto& earth = server.world().massiveBodies[1];
+    const auto& moon = server.world().massiveBodies[2];
+    const auto diff = spaceship::server::subtract(moon.transform.position, earth.transform.position);
+    const double finalAngle = std::atan2(diff.y, diff.x);
+
+    EXPECT_GT(finalAngle, initialAngle);
+}
+
+TEST_F(MassiveBodyMotionTest, EarthVelocityIsTangentialToOrbitAroundSun)
+{
+    server.tick();
+
+    const auto& earth = server.world().massiveBodies[1];
+    // Sun at origin → position IS the radius vector
+    const double dotResult = spaceship::server::dot(earth.transform.position, earth.velocity.linear);
+    const double posMag = spaceship::server::length(earth.transform.position);
+    const double velMag = spaceship::server::length(earth.velocity.linear);
+
+    EXPECT_NEAR(dotResult / (posMag * velMag), 0.0, 1e-6);
+}
+
+// ---------------------------------------------------------------------------
+// EarthOnlyCenteredTest — single Earth at origin, for precise gravity checks
+// ---------------------------------------------------------------------------
+
+class EarthOnlyCenteredTest : public ::testing::Test
+{
+  protected:
+    spaceship::server::SimulationServer server {spaceship::server::createEarthOnlyAtOriginWorld()};
+
+    static constexpr double kEarthMu = 3.986004418e14;
+    static constexpr double kEarthRadius = 6.371e6;
+    static constexpr double kLeoAltitude = 400'000.0;
+    static constexpr double kLeoRadius = kEarthRadius + kLeoAltitude;
+};
+
+TEST_F(EarthOnlyCenteredTest, WorldContainsOnlyEarth)
+{
+    ASSERT_EQ(server.world().massiveBodies.size(), 1U);
+    EXPECT_EQ(server.world().massiveBodies[0].definition.name, "Earth");
+    EXPECT_NEAR(server.world().massiveBodies[0].transform.position.x, 0.0, 1e-9);
+}
+
+TEST_F(EarthOnlyCenteredTest, EarthRemainsAtOriginAfterManyTicks)
+{
+    for (int i = 0; i < 3600; ++i)
+        server.tick();
+
+    const auto& earth = server.world().massiveBodies[0];
+    EXPECT_NEAR(earth.transform.position.x, 0.0, 1.0);
+    EXPECT_NEAR(earth.transform.position.y, 0.0, 1.0);
+    EXPECT_NEAR(earth.transform.position.z, 0.0, 1.0);
 }
