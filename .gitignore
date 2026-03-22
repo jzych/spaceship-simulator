@@ -46,3 +46,8 @@
 
 # custom directory
 /.ignore
+
+# Claude Code
+.claude/
+CLAUDE.md
+build_warn/
