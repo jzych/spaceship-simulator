@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 
 namespace spaceship::server
 {
@@ -27,11 +26,10 @@ ReferenceBodySelection ReferenceBodySelector::update(
     };
 
     constexpr std::size_t kMaxBodies = 8;
-    assert(massiveBodies.size() <= kMaxBodies);
+    const auto bodyCount = std::min(massiveBodies.size(), kMaxBodies);
 
     double totalAccelMag = 0.0;
     std::array<BodyScore, kMaxBodies> scores {};
-    const auto bodyCount = massiveBodies.size();
 
     for (std::size_t i = 0; i < bodyCount; ++i)
     {

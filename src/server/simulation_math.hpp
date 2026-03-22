@@ -5,6 +5,7 @@
 #include "shared/sim_types.hpp"
 
 #include <cmath>
+#include <numbers>
 
 namespace spaceship::server
 {
@@ -80,7 +81,7 @@ inline double bodySpinAngle(double siderealPeriodSeconds, double initialPhaseRad
 {
     if (siderealPeriodSeconds <= 0.0)
         return initialPhaseRadians;
-    constexpr double kTwoPi = 2.0 * 3.14159265358979323846;
+    constexpr double kTwoPi = 2.0 * std::numbers::pi;
     const double angularVelocity = kTwoPi / siderealPeriodSeconds;
     return initialPhaseRadians + angularVelocity * elapsedSeconds;
 }

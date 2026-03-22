@@ -50,6 +50,8 @@ void SimulationServer::tick()
     integrationSystem_.integrateVelocities(world_.ships, world_.projectiles, config_);
 
     integrationSystem_.decrementTtl(world_.projectiles, config_);
+    // tickCount_ + 1 = the tick being committed (pre-increment); elapsedSeconds_ was
+    // already advanced at the top of tick(), so both are at the n+1 time step.
     orbitCacheSystem_.update(world_.ships, world_.massiveBodies, tickCount_ + 1, config_, elapsedSeconds_);
     collisionSystem_.update(world_.projectiles);
 
