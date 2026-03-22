@@ -1,28 +1,12 @@
 #include "server/massive_body_motion_system.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace spaceship::server
 {
 
-namespace
-{
-
-shared::Vec3 findCenterPosition(
-    const std::vector<MassiveBodyState>& massiveBodies,
-    shared::NetId centerNetId)
-{
-    const auto it = std::find_if(
-        massiveBodies.begin(),
-        massiveBodies.end(),
-        [centerNetId](const MassiveBodyState& body)
-        { return body.definition.netId == centerNetId; });
-
-    return (it != massiveBodies.end()) ? it->transform.position : shared::Vec3 {};
-}
-
-} // namespace
 
 void MassiveBodyMotionSystem::update(
     std::vector<MassiveBodyState>& massiveBodies,
@@ -33,10 +17,21 @@ void MassiveBodyMotionSystem::update(
         if (body.orbital.orbitRadiusMeters == 0.0)
             continue;
 
-        // Center position is already updated earlier in the same pass
-        // (guaranteed by Sun→Earth→Moon index order in bootstrap)
+        // Invariant: the center body must appear at a lower index so its position
+        // has already been updated in this same pass. Bootstrapped order: Sun < Earth < Moon.
+        // Violating this order produces one-tick-stale center coordinates.
+        const auto centerIt = std::find_if(
+            massiveBodies.begin(),
+            massiveBodies.end(),
+            [&body](const MassiveBodyState& b)
+            { return b.definition.netId == body.orbital.centerNetId; });
+        assert(centerIt < std::find_if(
+            massiveBodies.begin(), massiveBodies.end(),
+            [&body](const MassiveBodyState& b) { return &b == &body; }) &&
+            "center body must precede orbiting body in massiveBodies vector");
+
         const shared::Vec3 center =
-            findCenterPosition(massiveBodies, body.orbital.centerNetId);
+            (centerIt != massiveBodies.end()) ? centerIt->transform.position : shared::Vec3 {};
 
         const double phase =
             body.orbital.angularVelocityRadPerSec * elapsedSeconds +

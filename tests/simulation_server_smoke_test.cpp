@@ -18,6 +18,10 @@ constexpr double kDefaultProjectileMuzzleSpeedMetersPerSecond = 1'000.0;
 
 } // namespace
 
+// ---------------------------------------------------------------------------
+// SimulationServerSmokeTest — basic API tests, full world, no integration checks
+// ---------------------------------------------------------------------------
+
 class SimulationServerSmokeTest : public ::testing::Test
 {
   protected:
@@ -132,7 +136,17 @@ TEST_F(SimulationServerSmokeTest, UpdateShipControlReplacesExistingControlState)
     EXPECT_TRUE(ship.control.fire);
 }
 
-TEST_F(SimulationServerSmokeTest, TickAppliesForwardThrustToShipVelocity)
+// ---------------------------------------------------------------------------
+// ZeroGravityShipBehaviorTest — Verlet integration and thrust tests (no gravity)
+// ---------------------------------------------------------------------------
+
+class ZeroGravityShipBehaviorTest : public ::testing::Test
+{
+  protected:
+    spaceship::server::SimulationServer server {spaceship::server::SimulationWorld {}};
+};
+
+TEST_F(ZeroGravityShipBehaviorTest, TickAppliesForwardThrustToShipVelocity)
 {
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
@@ -153,7 +167,7 @@ TEST_F(SimulationServerSmokeTest, TickAppliesForwardThrustToShipVelocity)
     EXPECT_DOUBLE_EQ(ship.velocity.linear.z, 0.0);
 }
 
-TEST_F(SimulationServerSmokeTest, TickAppliesDesiredOrientationBeforeThrust)
+TEST_F(ZeroGravityShipBehaviorTest, TickAppliesDesiredOrientationBeforeThrust)
 {
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
@@ -178,16 +192,19 @@ TEST_F(SimulationServerSmokeTest, TickAppliesDesiredOrientationBeforeThrust)
     EXPECT_NEAR(ship.velocity.linear.y, kExpectedVelocityDeltaPerTick, 1e-9);
 }
 
-TEST_F(SimulationServerSmokeTest, TickDrivenFireSpawnsProjectileAndClearsFireFlag)
+TEST_F(ZeroGravityShipBehaviorTest, TickDrivenFireSpawnsProjectileAndClearsFireFlag)
 {
     constexpr spaceship::shared::NetId kExpectedFirstProjectileNetId = spaceship::server::kFirstProjectileNetId;
     const spaceship::server::ShipSpawnRequest request {
         {{1.0, 2.0, 3.0}, {1.0, 0.0, 0.0, 0.0}},
         {{10.0, 20.0, 30.0}},
     };
-    constexpr double kExpectedShipVelocityX = 10.0 + kExpectedVelocityDeltaPerTick;
+    // Projectile spawns before ship thrust is applied, so it takes the ship's
+    // pre-tick velocity (10.0) plus muzzle speed.
     constexpr double kExpectedProjectileVelocityX =
-        kExpectedShipVelocityX + kDefaultProjectileMuzzleSpeedMetersPerSecond;
+        10.0 + kDefaultProjectileMuzzleSpeedMetersPerSecond;
+    const double kExpectedProjectilePositionX =
+        1.0 + kExpectedProjectileVelocityX * spaceship::shared::constants::kFixedDeltaSeconds;
 
     const auto shipNetId = server.spawnShip(request);
     ASSERT_TRUE(server.updateShipControl(
@@ -204,7 +221,7 @@ TEST_F(SimulationServerSmokeTest, TickDrivenFireSpawnsProjectileAndClearsFireFla
     const auto& ship = server.world().ships.front();
     EXPECT_EQ(projectile.netId, kExpectedFirstProjectileNetId);
     EXPECT_EQ(projectile.params.ownerNetId, shipNetId);
-    EXPECT_DOUBLE_EQ(projectile.transform.position.x, 1.0);
+    EXPECT_NEAR(projectile.transform.position.x, kExpectedProjectilePositionX, 1e-6);
     EXPECT_DOUBLE_EQ(projectile.transform.orientation.w, 1.0);
     EXPECT_NEAR(projectile.velocity.linear.x, kExpectedProjectileVelocityX, 1e-9);
     EXPECT_DOUBLE_EQ(projectile.velocity.linear.y, 20.0);
@@ -213,6 +230,54 @@ TEST_F(SimulationServerSmokeTest, TickDrivenFireSpawnsProjectileAndClearsFireFla
     server.tick();
 
     EXPECT_EQ(server.world().projectiles.size(), 1U);
+}
+
+TEST_F(ZeroGravityShipBehaviorTest, VerletPositionAdvancesFromInitialVelocity)
+{
+    const spaceship::server::ShipSpawnRequest request {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{10.0, 0.0, 0.0}},
+    };
+    server.spawnShip(request);
+
+    server.tick();
+
+    const auto& ship = server.world().ships.front();
+    const double expectedX = 10.0 * spaceship::shared::constants::kFixedDeltaSeconds;
+    EXPECT_NEAR(ship.transform.position.x, expectedX, 1e-9);
+}
+
+TEST_F(ZeroGravityShipBehaviorTest, VerletPositionIncludesAccelerationTerm)
+{
+    // Ship at rest with full throttle — position advances by 0.5*a*dt²
+    const spaceship::server::ShipSpawnRequest request {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{0.0, 0.0, 0.0}},
+    };
+    const auto shipNetId = server.spawnShip(request);
+    server.updateShipControl(shipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, false});
+
+    server.tick();
+
+    const auto& ship = server.world().ships.front();
+    const double dt = spaceship::shared::constants::kFixedDeltaSeconds;
+    const double expectedX = 0.5 * kDefaultShipAccelerationMetersPerSecondSquared * dt * dt;
+    EXPECT_NEAR(ship.transform.position.x, expectedX, 1e-9);
+}
+
+TEST_F(ZeroGravityShipBehaviorTest, ShipControlWritesToAccelerationNotVelocityDirectly)
+{
+    // Before any tick, thrust must not have modified velocity
+    const spaceship::server::ShipSpawnRequest request {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{0.0, 0.0, 0.0}},
+    };
+    const auto shipNetId = server.spawnShip(request);
+    server.updateShipControl(shipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, false});
+
+    // Velocity unchanged before tick — only acceleration changes during tick
+    const auto& ship = server.world().ships.front();
+    EXPECT_DOUBLE_EQ(ship.velocity.linear.x, 0.0);
 }
 
 // --- Math utility tests ---
@@ -268,9 +333,9 @@ TEST(SimulationMathTest, LengthOfZeroVectorIsZero)
     EXPECT_DOUBLE_EQ(spaceship::server::length(zero), 0.0);
 }
 
-TEST(SimulationMathTest, ShipStateAccelerationDefaultsToZero)
+TEST(SimulationMathTest, ShipSpawnedInZeroGravityHasZeroAcceleration)
 {
-    spaceship::server::SimulationServer server;
+    spaceship::server::SimulationServer server {spaceship::server::SimulationWorld {}};
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
         {{0.0, 0.0, 0.0}},
@@ -283,9 +348,9 @@ TEST(SimulationMathTest, ShipStateAccelerationDefaultsToZero)
     EXPECT_DOUBLE_EQ(ship.acceleration.z, 0.0);
 }
 
-TEST(SimulationMathTest, ProjectileStateAccelerationDefaultsToZero)
+TEST(SimulationMathTest, ProjectileSpawnedInZeroGravityHasZeroAcceleration)
 {
-    spaceship::server::SimulationServer server;
+    spaceship::server::SimulationServer server {spaceship::server::SimulationWorld {}};
     const spaceship::server::ShipSpawnRequest request {
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
         {{0.0, 0.0, 0.0}},
@@ -429,4 +494,183 @@ TEST_F(EarthOnlyCenteredTest, EarthRemainsAtOriginAfterManyTicks)
     EXPECT_NEAR(earth.transform.position.x, 0.0, 1.0);
     EXPECT_NEAR(earth.transform.position.y, 0.0, 1.0);
     EXPECT_NEAR(earth.transform.position.z, 0.0, 1.0);
+}
+
+// --- Spawn gravity seeding ---
+
+TEST_F(EarthOnlyCenteredTest, ShipSpawnSeededWithGravityAcceleration)
+{
+    // Gravity at spawn position is immediately available (no tick needed)
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    server.spawnShip(request);
+
+    const auto& ship = server.world().ships.front();
+    EXPECT_LT(ship.acceleration.x, 0.0); // points toward Earth at origin
+    EXPECT_NEAR(ship.acceleration.y, 0.0, 1e-6);
+}
+
+TEST_F(EarthOnlyCenteredTest, ShipSpawnWithInjectedAccelerationOverridesGravity)
+{
+    const spaceship::shared::Vec3 kCustomAccel {1.0, 2.0, 3.0};
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.initialAcceleration = kCustomAccel;
+    server.spawnShip(request);
+
+    const auto& ship = server.world().ships.front();
+    EXPECT_DOUBLE_EQ(ship.acceleration.x, 1.0);
+    EXPECT_DOUBLE_EQ(ship.acceleration.y, 2.0);
+    EXPECT_DOUBLE_EQ(ship.acceleration.z, 3.0);
+}
+
+// --- Gravity acceleration tests ---
+
+TEST_F(EarthOnlyCenteredTest, ShipAtLeoReceivesCorrectGravityMagnitude)
+{
+    // g at LEO = μ / r² ≈ 8.67 m/s²
+    const double expectedG = kEarthMu / (kLeoRadius * kLeoRadius);
+
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    server.spawnShip(request);
+    server.tick();
+
+    const auto& ship = server.world().ships.front();
+    const double aMag = spaceship::server::length(ship.acceleration);
+    EXPECT_NEAR(aMag, expectedG, 0.01);
+}
+
+TEST_F(EarthOnlyCenteredTest, ShipOnPositiveXAxisGravityPointsNegativeX)
+{
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    server.spawnShip(request);
+    server.tick();
+
+    const auto& ship = server.world().ships.front();
+    EXPECT_LT(ship.acceleration.x, 0.0);           // points toward Earth at origin
+    EXPECT_NEAR(ship.acceleration.y, 0.0, 1e-6);
+    EXPECT_NEAR(ship.acceleration.z, 0.0, 1e-6);
+}
+
+TEST_F(EarthOnlyCenteredTest, ShipOnNegativeYAxisGravityPointsPositiveY)
+{
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {0.0, -kLeoRadius, 0.0};
+    server.spawnShip(request);
+    server.tick();
+
+    const auto& ship = server.world().ships.front();
+    EXPECT_NEAR(ship.acceleration.x, 0.0, 1e-6);
+    EXPECT_GT(ship.acceleration.y, 0.0);            // points toward Earth at origin
+    EXPECT_NEAR(ship.acceleration.z, 0.0, 1e-6);
+}
+
+TEST_F(EarthOnlyCenteredTest, ProjectileReceivesGravityAfterTick)
+{
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    const auto shipId = server.spawnShip(request);
+    server.updateShipControl(shipId, {0.0, {1.0, 0.0, 0.0, 0.0}, true});
+    server.tick();
+
+    ASSERT_EQ(server.world().projectiles.size(), 1U);
+    const auto& proj = server.world().projectiles.front();
+    const double aMag = spaceship::server::length(proj.acceleration);
+    EXPECT_GT(aMag, 0.0);
+}
+
+TEST_F(EarthOnlyCenteredTest, GravityNotAppliedToMassiveBodies)
+{
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    server.spawnShip(request);
+    server.tick();
+
+    // Earth should have no acceleration field (OrbitalParams drives its motion)
+    const auto& earth = server.world().massiveBodies[0];
+    EXPECT_DOUBLE_EQ(earth.velocity.linear.x, 0.0); // Earth at origin has zero velocity
+}
+
+TEST_F(EarthOnlyCenteredTest, GravityEventsNoLongerPushed)
+{
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    server.spawnShip(request);
+    server.tick();
+
+    EXPECT_TRUE(server.world().events.empty());
+}
+
+// --- Edge cases ---
+
+TEST_F(EarthOnlyCenteredTest, ShipExactlyAtMassiveBodyCenterDoesNotCrash)
+{
+    // Ship placed exactly at Earth's center — division-by-zero guard
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {0.0, 0.0, 0.0};
+    server.spawnShip(request);
+    EXPECT_NO_FATAL_FAILURE(server.tick());
+}
+
+TEST_F(EarthOnlyCenteredTest, ShipWithZeroVelocityFallsAlongRadialLine)
+{
+    // No velocity, no angular momentum → falls straight toward Earth core along x-axis
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    // zero velocity (default)
+    server.spawnShip(request);
+
+    for (int i = 0; i < 600; ++i)
+        server.tick();
+
+    const auto& ship = server.world().ships.front();
+    EXPECT_NEAR(ship.transform.position.y, 0.0, 1.0); // no lateral drift
+    EXPECT_NEAR(ship.transform.position.z, 0.0, 1.0);
+    EXPECT_LT(ship.transform.position.x, kLeoRadius);  // moved toward Earth
+}
+
+TEST_F(EarthOnlyCenteredTest, VerletVelocityUsesAverageOfOldAndNewAcceleration)
+{
+    // Verlet: v_{n+1} = v_n + 0.5*(a_n + a_{n+1})*dt
+    // Ship falls from rest at LEO. a_n = -g(r_n), a_{n+1} = -g(r_{n+1}).
+    // After one tick r_{n+1} < r_n, so |a_{n+1}| > |a_n| (closer to Earth).
+    // Verlet velocity must be strictly larger than simple Euler v = v_n + a_n*dt.
+    const double gAtLeo = kEarthMu / (kLeoRadius * kLeoRadius);
+    const double dt = spaceship::shared::constants::kFixedDeltaSeconds;
+
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0}; // zero velocity
+    server.spawnShip(request);
+
+    server.tick();
+
+    const auto& ship = server.world().ships.front();
+    // Velocity gained in -x (toward Earth). Magnitude must exceed simple Euler a_n*dt
+    // because a_{n+1} > a_n (ship moved closer to Earth during phase 1).
+    const double eulerVelocity = gAtLeo * dt; // lower bound
+    EXPECT_GT(std::abs(ship.velocity.linear.x), eulerVelocity);
+    // And it must be less than 2*a_n*dt (strict upper bound — acceleration cannot double)
+    EXPECT_LT(std::abs(ship.velocity.linear.x), 2.0 * eulerVelocity);
+    // No lateral velocity generated for a purely radial fall
+    EXPECT_NEAR(ship.velocity.linear.y, 0.0, 1e-9);
+}
+
+TEST_F(EarthOnlyCenteredTest, LEOCircularOrbitMaintainsRadius600Ticks)
+{
+    // Circular orbit at LEO: v = sqrt(μ/r) ≈ 7667 m/s tangential (+y direction)
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    for (int i = 0; i < 600; ++i)
+        server.tick();
+
+    const auto& ship = server.world().ships.front();
+    const double radius = spaceship::server::length(ship.transform.position);
+    EXPECT_NEAR(radius, kLeoRadius, 200.0); // ±200 m tolerance
 }

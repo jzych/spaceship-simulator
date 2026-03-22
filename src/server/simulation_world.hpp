@@ -35,6 +35,7 @@ struct ShipState
     shared::ColliderSphere collider {};
     shared::ShipControl control {};
     shared::Vec3 acceleration {};
+    shared::Vec3 previousAcceleration {};
 };
 
 struct ProjectileState
@@ -46,6 +47,7 @@ struct ProjectileState
     shared::ColliderSphere collider {};
     shared::ProjectileParams params {};
     shared::Vec3 acceleration {};
+    shared::Vec3 previousAcceleration {};
 };
 
 struct PendingEvent

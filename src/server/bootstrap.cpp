@@ -31,16 +31,19 @@ SimulationWorld createInitialWorld()
             MassiveBodyDefinition {kSunNetId, "Sun", 1.32712440018e20, 6.9634e8},
             {{0.0, 0.0, 0.0}, {}},
             {{0.0, 0.0, 0.0}},
+            // OrbitalParams: orbitRadius == 0 → stationary sentinel; centerNetId is unused
             {0.0, 0.0, 0.0, kSunNetId}},
         MassiveBodyState {
             MassiveBodyDefinition {kEarthNetId, "Earth", 3.986004418e14, 6.371e6},
             {{shared::constants::kAstronomicalUnitMeters, 0.0, 0.0}, {}},
             {{0.0, kEarthOrbitalSpeedMetersPerSecond, 0.0}},
+            // OrbitalParams: orbitRadius > 0 → analytic circular orbit around Sun
             {shared::constants::kAstronomicalUnitMeters, kEarthAngularVelocityRadPerSec, 0.0, kSunNetId}},
         MassiveBodyState {
             MassiveBodyDefinition {kMoonNetId, "Moon", 4.9048695e12, 1.7374e6},
             {{shared::constants::kAstronomicalUnitMeters + kMoonDistanceMeters, 0.0, 0.0}, {}},
             {{0.0, kEarthOrbitalSpeedMetersPerSecond + kMoonOrbitalSpeedRelativeToEarthMetersPerSecond, 0.0}},
+            // OrbitalParams: orbitRadius > 0 → analytic circular orbit around Earth
             {kMoonDistanceMeters, kMoonAngularVelocityRadPerSec, 0.0, kEarthNetId}},
     };
 
@@ -60,6 +63,7 @@ SimulationWorld createEarthOnlyAtOriginWorld()
             MassiveBodyDefinition {kEarthNetId, "Earth", kEarthMu, kEarthRadius},
             {{0.0, 0.0, 0.0}, {}},
             {{0.0, 0.0, 0.0}},
+            // OrbitalParams: orbitRadius == 0 → stationary at origin; centerNetId is unused
             {0.0, 0.0, 0.0, kEarthNetId}},
     };
 
