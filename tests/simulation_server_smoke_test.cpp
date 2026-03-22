@@ -1,3 +1,4 @@
+#include "server/simulation_math.hpp"
 #include "server/simulation_server.hpp"
 
 #include <gtest/gtest.h>
@@ -209,4 +210,84 @@ TEST_F(SimulationServerSmokeTest, TickDrivenFireSpawnsProjectileAndClearsFireFla
     server.tick();
 
     EXPECT_EQ(server.world().projectiles.size(), 1U);
+}
+
+// --- Math utility tests ---
+
+TEST(SimulationMathTest, SubtractVec3ReturnsComponentWiseDifference)
+{
+    const spaceship::shared::Vec3 a {3.0, 2.0, 1.0};
+    const spaceship::shared::Vec3 b {1.0, 1.0, 1.0};
+    const auto result = spaceship::server::subtract(a, b);
+    EXPECT_DOUBLE_EQ(result.x, 2.0);
+    EXPECT_DOUBLE_EQ(result.y, 1.0);
+    EXPECT_DOUBLE_EQ(result.z, 0.0);
+}
+
+TEST(SimulationMathTest, SubtractVec3WithNegativeResult)
+{
+    const spaceship::shared::Vec3 a {1.0, 2.0, 3.0};
+    const spaceship::shared::Vec3 b {4.0, 5.0, 6.0};
+    const auto result = spaceship::server::subtract(a, b);
+    EXPECT_DOUBLE_EQ(result.x, -3.0);
+    EXPECT_DOUBLE_EQ(result.y, -3.0);
+    EXPECT_DOUBLE_EQ(result.z, -3.0);
+}
+
+TEST(SimulationMathTest, DotProductOfOrthogonalVectorsIsZero)
+{
+    const spaceship::shared::Vec3 x {1.0, 0.0, 0.0};
+    const spaceship::shared::Vec3 y {0.0, 1.0, 0.0};
+    EXPECT_DOUBLE_EQ(spaceship::server::dot(x, y), 0.0);
+}
+
+TEST(SimulationMathTest, DotProductOfParallelVectorsMatchesMagnitudeSquared)
+{
+    const spaceship::shared::Vec3 v {3.0, 0.0, 0.0};
+    EXPECT_DOUBLE_EQ(spaceship::server::dot(v, v), 9.0);
+}
+
+TEST(SimulationMathTest, LengthSquaredMatchesDotProductWithSelf)
+{
+    const spaceship::shared::Vec3 v {3.0, 4.0, 0.0};
+    EXPECT_DOUBLE_EQ(spaceship::server::lengthSquared(v), 25.0);
+}
+
+TEST(SimulationMathTest, LengthOfKnownVector)
+{
+    const spaceship::shared::Vec3 v {3.0, 4.0, 0.0};
+    EXPECT_DOUBLE_EQ(spaceship::server::length(v), 5.0);
+}
+
+TEST(SimulationMathTest, ShipStateAccelerationDefaultsToZero)
+{
+    spaceship::server::SimulationServer server;
+    const spaceship::server::ShipSpawnRequest request {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{0.0, 0.0, 0.0}},
+    };
+    server.spawnShip(request);
+
+    const auto& ship = server.world().ships.front();
+    EXPECT_DOUBLE_EQ(ship.acceleration.x, 0.0);
+    EXPECT_DOUBLE_EQ(ship.acceleration.y, 0.0);
+    EXPECT_DOUBLE_EQ(ship.acceleration.z, 0.0);
+}
+
+TEST(SimulationMathTest, ProjectileStateAccelerationDefaultsToZero)
+{
+    spaceship::server::SimulationServer server;
+    const spaceship::server::ShipSpawnRequest request {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
+        {{0.0, 0.0, 0.0}},
+    };
+    const auto shipNetId = server.spawnShip(request);
+    server.updateShipControl(shipNetId, spaceship::shared::ShipControl {0.0, {1.0, 0.0, 0.0, 0.0}, true});
+    server.tick();
+
+    ASSERT_EQ(server.world().projectiles.size(), 1U);
+    const auto& projectile = server.world().projectiles.front();
+    EXPECT_DOUBLE_EQ(projectile.acceleration.x, 0.0);
+    EXPECT_DOUBLE_EQ(projectile.acceleration.y, 0.0);
+    EXPECT_DOUBLE_EQ(projectile.acceleration.z, 0.0);
 }
