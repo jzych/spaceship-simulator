@@ -19,6 +19,13 @@ add_library(spaceship-server
     src/server/gravity_system.hpp
     src/server/massive_body_motion_system.cpp
     src/server/massive_body_motion_system.hpp
+    src/server/orbit_cache.hpp
+    src/server/orbit_fitting.cpp
+    src/server/orbit_fitting.hpp
+    src/server/reference_body_selector.cpp
+    src/server/reference_body_selector.hpp
+    src/server/orbit_cache_system.cpp
+    src/server/orbit_cache_system.hpp
     src/server/ship_control_system.cpp
     src/server/ship_control_system.hpp
     src/server/integration_system.cpp

@@ -1,4 +1,6 @@
 #include "server/bootstrap.hpp"
+#include "server/orbit_fitting.hpp"
+#include "server/reference_body_selector.hpp"
 #include "server/simulation_math.hpp"
 #include "server/simulation_server.hpp"
 #include "server/simulation_world.hpp"
@@ -666,4 +668,646 @@ TEST_F(EarthOnlyCenteredTest, LEOCircularOrbitMaintainsRadius600Ticks)
     const auto& ship = server.world().ships.front();
     const double radius = spaceship::server::length(ship.transform.position);
     EXPECT_NEAR(radius, kLeoRadius, 200.0); // ±200 m tolerance
+}
+
+// ---------------------------------------------------------------------------
+// SimulationMathTest — cross, normalize, negate, projectOntoPlane
+// ---------------------------------------------------------------------------
+
+TEST(SimulationMathTest, CrossProductOfXAndYIsZ)
+{
+    const spaceship::shared::Vec3 x {1.0, 0.0, 0.0};
+    const spaceship::shared::Vec3 y {0.0, 1.0, 0.0};
+    const auto result = spaceship::server::cross(x, y);
+    EXPECT_DOUBLE_EQ(result.x, 0.0);
+    EXPECT_DOUBLE_EQ(result.y, 0.0);
+    EXPECT_DOUBLE_EQ(result.z, 1.0);
+}
+
+TEST(SimulationMathTest, CrossProductIsAntiCommutative)
+{
+    const spaceship::shared::Vec3 a {1.0, 2.0, 3.0};
+    const spaceship::shared::Vec3 b {4.0, 5.0, 6.0};
+    const auto ab = spaceship::server::cross(a, b);
+    const auto ba = spaceship::server::cross(b, a);
+    EXPECT_DOUBLE_EQ(ab.x, -ba.x);
+    EXPECT_DOUBLE_EQ(ab.y, -ba.y);
+    EXPECT_DOUBLE_EQ(ab.z, -ba.z);
+}
+
+TEST(SimulationMathTest, CrossProductOfParallelVectorsIsZero)
+{
+    const spaceship::shared::Vec3 a {3.0, 0.0, 0.0};
+    const spaceship::shared::Vec3 b {7.0, 0.0, 0.0};
+    const auto result = spaceship::server::cross(a, b);
+    EXPECT_DOUBLE_EQ(result.x, 0.0);
+    EXPECT_DOUBLE_EQ(result.y, 0.0);
+    EXPECT_DOUBLE_EQ(result.z, 0.0);
+}
+
+TEST(SimulationMathTest, NormalizeUnitVector)
+{
+    const spaceship::shared::Vec3 v {0.0, 5.0, 0.0};
+    const auto result = spaceship::server::normalize(v);
+    EXPECT_DOUBLE_EQ(result.x, 0.0);
+    EXPECT_DOUBLE_EQ(result.y, 1.0);
+    EXPECT_DOUBLE_EQ(result.z, 0.0);
+}
+
+TEST(SimulationMathTest, NormalizeZeroVectorReturnsZero)
+{
+    const spaceship::shared::Vec3 zero {};
+    const auto result = spaceship::server::normalize(zero);
+    EXPECT_DOUBLE_EQ(result.x, 0.0);
+    EXPECT_DOUBLE_EQ(result.y, 0.0);
+    EXPECT_DOUBLE_EQ(result.z, 0.0);
+}
+
+TEST(SimulationMathTest, NormalizeProducesUnitLength)
+{
+    const spaceship::shared::Vec3 v {3.0, 4.0, 12.0};
+    const auto result = spaceship::server::normalize(v);
+    EXPECT_NEAR(spaceship::server::length(result), 1.0, 1e-15);
+}
+
+TEST(SimulationMathTest, NegateVec3FlipsSigns)
+{
+    const spaceship::shared::Vec3 v {1.0, -2.0, 3.0};
+    const auto result = spaceship::server::negate(v);
+    EXPECT_DOUBLE_EQ(result.x, -1.0);
+    EXPECT_DOUBLE_EQ(result.y, 2.0);
+    EXPECT_DOUBLE_EQ(result.z, -3.0);
+}
+
+TEST(SimulationMathTest, ProjectOntoPlaneRemovesNormalComponent)
+{
+    const spaceship::shared::Vec3 v {1.0, 2.0, 3.0};
+    const spaceship::shared::Vec3 n {0.0, 1.0, 0.0}; // y-normal plane
+    const auto result = spaceship::server::projectOntoPlane(v, n);
+    EXPECT_DOUBLE_EQ(result.x, 1.0);
+    EXPECT_NEAR(result.y, 0.0, 1e-15);
+    EXPECT_DOUBLE_EQ(result.z, 3.0);
+}
+
+// ---------------------------------------------------------------------------
+// OrbitFittingTest — Keplerian element computation
+// ---------------------------------------------------------------------------
+
+class OrbitFittingTest : public ::testing::Test
+{
+  protected:
+    static constexpr double kEarthMu = 3.986004418e14;
+    static constexpr double kEarthRadius = 6.371e6;
+    static constexpr double kLeoRadius = kEarthRadius + 400'000.0;
+    static constexpr spaceship::shared::NetId kEarthNetId = 1U;
+    static constexpr spaceship::shared::Tick kTick = 42U;
+};
+
+TEST_F(OrbitFittingTest, CircularOrbitProducesZeroEccentricity)
+{
+    // Ship at (r, 0, 0) with v = (0, v_circ, 0) → circular orbit
+    const double vCirc = std::sqrt(kEarthMu / kLeoRadius);
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vCirc, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_TRUE(cache.isElliptic);
+    EXPECT_NEAR(cache.eccentricity, 0.0, 1e-6);
+    EXPECT_NEAR(cache.semiMajorAxis, kLeoRadius, 1.0);
+    EXPECT_NEAR(cache.semiMinorAxis, kLeoRadius, 1.0);
+    EXPECT_NEAR(cache.periapsisRadius, kLeoRadius, 1.0);
+    EXPECT_NEAR(cache.apoapsisRadius, kLeoRadius, 1.0);
+}
+
+TEST_F(OrbitFittingTest, CircularOrbitNormalPointsAlongAngularMomentum)
+{
+    // Orbit in x-y plane → angular momentum along +z
+    const double vCirc = std::sqrt(kEarthMu / kLeoRadius);
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vCirc, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_NEAR(cache.orbitNormal.z, 1.0, 1e-10);
+    EXPECT_NEAR(cache.orbitNormal.x, 0.0, 1e-10);
+    EXPECT_NEAR(cache.orbitNormal.y, 0.0, 1e-10);
+}
+
+TEST_F(OrbitFittingTest, EllipticalOrbitCorrectSemiMajorAxisAndEccentricity)
+{
+    // Ship at periapsis: r = r_p, v = v_p (tangential)
+    // Choose e = 0.1, a = kLeoRadius / (1 - e)
+    constexpr double kEccentricity = 0.1;
+    const double a = kLeoRadius / (1.0 - kEccentricity);
+    // v at periapsis: v_p = sqrt(μ * (2/r - 1/a))
+    const double vP = std::sqrt(kEarthMu * (2.0 / kLeoRadius - 1.0 / a));
+
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vP, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_TRUE(cache.isElliptic);
+    EXPECT_NEAR(cache.eccentricity, kEccentricity, 1e-6);
+    EXPECT_NEAR(cache.semiMajorAxis, a, 10.0);
+    EXPECT_NEAR(cache.periapsisRadius, kLeoRadius, 10.0);
+    EXPECT_NEAR(cache.apoapsisRadius, a * (1.0 + kEccentricity), 10.0);
+}
+
+TEST_F(OrbitFittingTest, EllipticalOrbitTrueAnomalyAtPeriapsisIsZero)
+{
+    constexpr double kEccentricity = 0.1;
+    const double a = kLeoRadius / (1.0 - kEccentricity);
+    const double vP = std::sqrt(kEarthMu * (2.0 / kLeoRadius - 1.0 / a));
+
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vP, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_NEAR(cache.trueAnomaly, 0.0, 1e-6);
+    EXPECT_NEAR(cache.eccentricAnomaly, 0.0, 1e-6);
+    EXPECT_NEAR(cache.meanAnomaly, 0.0, 1e-6);
+}
+
+TEST_F(OrbitFittingTest, EllipseGeometryIsConsistent)
+{
+    constexpr double kEccentricity = 0.3;
+    const double a = kLeoRadius / (1.0 - kEccentricity);
+    const double vP = std::sqrt(kEarthMu * (2.0 / kLeoRadius - 1.0 / a));
+
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vP, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    // b = a * sqrt(1 - e²)
+    const double expectedB = cache.semiMajorAxis * std::sqrt(1.0 - cache.eccentricity * cache.eccentricity);
+    EXPECT_NEAR(cache.semiMinorAxis, expectedB, 1.0);
+
+    // Ellipse center = -a*e * p_hat
+    const double centerDist = spaceship::server::length(cache.ellipseCenter);
+    EXPECT_NEAR(centerDist, cache.semiMajorAxis * cache.eccentricity, 10.0);
+
+    // p_hat and q_hat are orthonormal
+    EXPECT_NEAR(spaceship::server::dot(cache.periapsisDirection, cache.sideDirection), 0.0, 1e-10);
+    EXPECT_NEAR(spaceship::server::length(cache.periapsisDirection), 1.0, 1e-10);
+    EXPECT_NEAR(spaceship::server::length(cache.sideDirection), 1.0, 1e-10);
+
+    // h_hat is perpendicular to both
+    EXPECT_NEAR(spaceship::server::dot(cache.orbitNormal, cache.periapsisDirection), 0.0, 1e-10);
+    EXPECT_NEAR(spaceship::server::dot(cache.orbitNormal, cache.sideDirection), 0.0, 1e-10);
+}
+
+TEST_F(OrbitFittingTest, HyperbolicStateIsNotElliptic)
+{
+    // Escape velocity at LEO: v > sqrt(2μ/r)
+    const double vEscape = std::sqrt(2.0 * kEarthMu / kLeoRadius);
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vEscape * 1.5, 0.0}; // well above escape
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_FALSE(cache.isElliptic);
+}
+
+TEST_F(OrbitFittingTest, ZeroVelocityIsNotElliptic)
+{
+    // Zero velocity → degenerate (collinear r, v; zero angular momentum)
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, 0.0, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_FALSE(cache.isElliptic);
+}
+
+TEST_F(OrbitFittingTest, RadialVelocityIsNotElliptic)
+{
+    // Purely radial velocity → zero angular momentum
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {100.0, 0.0, 0.0}; // along r
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_FALSE(cache.isElliptic);
+}
+
+TEST_F(OrbitFittingTest, NonEllipticStillStoresRelativeStateAndAltitude)
+{
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, 0.0, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    EXPECT_DOUBLE_EQ(cache.relativePosition.x, kLeoRadius);
+    EXPECT_DOUBLE_EQ(cache.relativeVelocity.x, 0.0);
+    EXPECT_NEAR(cache.altitudeMeters, 400'000.0, 1.0);
+    EXPECT_EQ(cache.referenceBodyId, kEarthNetId);
+    EXPECT_EQ(cache.epoch, kTick);
+}
+
+TEST_F(OrbitFittingTest, CircularOrbitPeriapsisDirectionFallsBackToPositionVector)
+{
+    // Near-circular orbit (e ≈ 0) → periapsis direction undefined.
+    // Fallback should use normalized position projected onto orbital plane.
+    const double vCirc = std::sqrt(kEarthMu / kLeoRadius);
+    const spaceship::shared::Vec3 r {kLeoRadius, 0.0, 0.0};
+    const spaceship::shared::Vec3 v {0.0, vCirc, 0.0};
+
+    const auto cache = spaceship::server::fitOrbit(r, v, kEarthMu, kEarthRadius, kEarthNetId, kTick);
+
+    // p_hat should point along +x (direction of r projected onto orbit plane)
+    EXPECT_NEAR(cache.periapsisDirection.x, 1.0, 1e-6);
+    EXPECT_NEAR(cache.periapsisDirection.y, 0.0, 1e-6);
+}
+
+// ---------------------------------------------------------------------------
+// QualityScoreTest
+// ---------------------------------------------------------------------------
+
+TEST(QualityScoreTest, PureTwoBodyGivesScoreNearOne)
+{
+    // Acceleration is exactly the two-body acceleration → no perturbation
+    constexpr double kMu = 3.986004418e14;
+    constexpr double kR = 6.771e6;
+    const spaceship::shared::Vec3 r {kR, 0.0, 0.0};
+    // Two-body accel: a = -μ/r² in -x direction
+    const spaceship::shared::Vec3 a {-kMu / (kR * kR), 0.0, 0.0};
+
+    const double score = spaceship::server::computeQualityScore(a, r, kMu);
+
+    EXPECT_GT(score, 0.95);
+    EXPECT_LE(score, 1.0);
+}
+
+TEST(QualityScoreTest, LargePerturbationReducesScore)
+{
+    constexpr double kMu = 3.986004418e14;
+    constexpr double kR = 6.771e6;
+    const spaceship::shared::Vec3 r {kR, 0.0, 0.0};
+    // Add a large perpendicular perturbation
+    const double twoBodyAccel = kMu / (kR * kR);
+    const spaceship::shared::Vec3 a {-twoBodyAccel, twoBodyAccel * 0.5, 0.0};
+
+    const double score = spaceship::server::computeQualityScore(a, r, kMu);
+
+    EXPECT_LT(score, 0.8);
+    EXPECT_GE(score, 0.0);
+}
+
+TEST(QualityScoreTest, ScoreIsClampedBetweenZeroAndOne)
+{
+    constexpr double kMu = 3.986004418e14;
+    constexpr double kR = 6.771e6;
+    const spaceship::shared::Vec3 r {kR, 0.0, 0.0};
+    // Extreme perturbation
+    const spaceship::shared::Vec3 a {1e10, 1e10, 1e10};
+
+    const double score = spaceship::server::computeQualityScore(a, r, kMu);
+
+    EXPECT_GE(score, 0.0);
+    EXPECT_LE(score, 1.0);
+}
+
+// ---------------------------------------------------------------------------
+// ReferenceBodySelectorTest — hysteresis-based body selection
+// ---------------------------------------------------------------------------
+
+class ReferenceBodySelectorTest : public ::testing::Test
+{
+  protected:
+    // Two bodies: Sun at origin, Earth at 1 AU on +x
+    static constexpr double kSunMu = 1.32712440018e20;
+    static constexpr double kEarthMu = 3.986004418e14;
+    static constexpr double kAU = 149'597'870'700.0;
+    static constexpr spaceship::shared::NetId kSunNetId = 0U;
+    static constexpr spaceship::shared::NetId kEarthNetId = 1U;
+
+    spaceship::server::SimulationConfig config {};
+
+    std::vector<spaceship::server::MassiveBodyState> makeSunEarth() const
+    {
+        return {
+            spaceship::server::MassiveBodyState {
+                {kSunNetId, "Sun", kSunMu, 6.9634e8}, {{0.0, 0.0, 0.0}}, {}, {}},
+            spaceship::server::MassiveBodyState {
+                {kEarthNetId, "Earth", kEarthMu, 6.371e6}, {{kAU, 0.0, 0.0}}, {}, {}},
+        };
+    }
+};
+
+TEST_F(ReferenceBodySelectorTest, FirstUpdateSelectsDominantBody)
+{
+    auto bodies = makeSunEarth();
+    spaceship::server::ReferenceBodySelector selector;
+
+    // Ship in LEO around Earth — Earth dominates
+    const spaceship::shared::Vec3 shipPos {kAU + 6.771e6, 0.0, 0.0};
+    const auto result = selector.update(shipPos, bodies, config, 1.0 / 60.0);
+
+    EXPECT_EQ(result.bodyId, kEarthNetId);
+    EXPECT_GT(result.score, 0.5);
+}
+
+TEST_F(ReferenceBodySelectorTest, ShipInDeepSpaceSelectsSun)
+{
+    auto bodies = makeSunEarth();
+    spaceship::server::ReferenceBodySelector selector;
+
+    // Ship far from both, but closer to Sun in gravity terms (midway)
+    const spaceship::shared::Vec3 shipPos {kAU * 0.5, 0.0, 0.0};
+    const auto result = selector.update(shipPos, bodies, config, 1.0 / 60.0);
+
+    EXPECT_EQ(result.bodyId, kSunNetId);
+}
+
+TEST_F(ReferenceBodySelectorTest, HysteresisPreventsImmediateSwitch)
+{
+    auto bodies = makeSunEarth();
+    spaceship::server::ReferenceBodySelector selector;
+    const double dt = 1.0 / 60.0;
+
+    // Start in LEO — locks to Earth
+    const spaceship::shared::Vec3 leoPos {kAU + 6.771e6, 0.0, 0.0};
+    (void)selector.update(leoPos, bodies, config, dt);
+
+    // Move to a position where Sun marginally dominates (just past SOI boundary)
+    // Earth SOI ≈ 0.929e9 m. Place ship at kAU - 1e9 (just outside Earth SOI)
+    const spaceship::shared::Vec3 boundaryPos {kAU - 1.0e9, 0.0, 0.0};
+
+    // Single update should NOT switch (hysteresis dwell not met)
+    const auto result = selector.update(boundaryPos, bodies, config, dt);
+
+    EXPECT_EQ(result.bodyId, kEarthNetId); // stays with Earth
+    EXPECT_FALSE(result.changed);
+}
+
+TEST_F(ReferenceBodySelectorTest, SwitchesAfterDwellTimeExceeded)
+{
+    auto bodies = makeSunEarth();
+    spaceship::server::ReferenceBodySelector selector;
+    const double dt = 1.0 / 60.0;
+
+    // Start in LEO — locks to Earth
+    const spaceship::shared::Vec3 leoPos {kAU + 6.771e6, 0.0, 0.0};
+    (void)selector.update(leoPos, bodies, config, dt);
+
+    // Move to deep space where Sun clearly dominates
+    const spaceship::shared::Vec3 deepSpace {kAU * 0.5, 0.0, 0.0};
+
+    // Accumulate dwell time over many updates
+    bool switchOccurred = false;
+    spaceship::server::ReferenceBodySelection lastResult {};
+    const int dwellTicks = static_cast<int>(config.referenceBodyDwellTimeSeconds / dt) + 10;
+    for (int i = 0; i < dwellTicks; ++i)
+    {
+        lastResult = selector.update(deepSpace, bodies, config, dt);
+        if (lastResult.changed)
+            switchOccurred = true;
+    }
+
+    EXPECT_EQ(lastResult.bodyId, kSunNetId);
+    EXPECT_TRUE(switchOccurred);
+}
+
+TEST_F(ReferenceBodySelectorTest, DwellResetWhenAdvantageIsLost)
+{
+    auto bodies = makeSunEarth();
+    spaceship::server::ReferenceBodySelector selector;
+    const double dt = 1.0 / 60.0;
+
+    // Start in LEO — locks to Earth
+    const spaceship::shared::Vec3 leoPos {kAU + 6.771e6, 0.0, 0.0};
+    (void)selector.update(leoPos, bodies, config, dt);
+
+    // Move to deep space for partial dwell (less than dwellTime)
+    const spaceship::shared::Vec3 deepSpace {kAU * 0.5, 0.0, 0.0};
+    const int partialTicks = static_cast<int>(config.referenceBodyDwellTimeSeconds / dt) / 2;
+    for (int i = 0; i < partialTicks; ++i)
+        (void)selector.update(deepSpace, bodies, config, dt);
+
+    // Return to LEO — dwell should reset
+    (void)selector.update(leoPos, bodies, config, dt);
+
+    // Go back to deep space — need full dwell again
+    spaceship::server::ReferenceBodySelection result {};
+    for (int i = 0; i < partialTicks; ++i)
+        result = selector.update(deepSpace, bodies, config, dt);
+
+    EXPECT_EQ(result.bodyId, kEarthNetId); // still Earth — dwell was reset
+}
+
+// ---------------------------------------------------------------------------
+// OrbitCacheIntegrationTest — OrbitCache on ships via the tick pipeline
+// ---------------------------------------------------------------------------
+
+TEST_F(EarthOnlyCenteredTest, LEOShipOrbitCacheIsEllipticAfterTick)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+
+    const auto& cache = server.world().ships.front().orbitCache;
+    EXPECT_TRUE(cache.isElliptic);
+    EXPECT_NEAR(cache.eccentricity, 0.0, 1e-3);
+    EXPECT_NEAR(cache.semiMajorAxis, kLeoRadius, 100.0);
+    EXPECT_EQ(cache.referenceBodyId, 1U); // Earth
+}
+
+TEST_F(EarthOnlyCenteredTest, OrbitCacheAltitudeMatchesLEO)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+
+    const auto& cache = server.world().ships.front().orbitCache;
+    EXPECT_NEAR(cache.altitudeMeters, kLeoAltitude, 100.0);
+}
+
+TEST_F(EarthOnlyCenteredTest, ActiveShipCacheRefreshesEveryTick)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    const auto shipId = server.spawnShip(request);
+    server.updateShipControl(shipId, {1.0, {1.0, 0.0, 0.0, 0.0}, false});
+
+    server.tick();
+    const auto epoch1 = server.world().ships.front().orbitCache.epoch;
+
+    server.tick();
+    const auto epoch2 = server.world().ships.front().orbitCache.epoch;
+
+    EXPECT_EQ(epoch2, epoch1 + 1);
+}
+
+TEST_F(EarthOnlyCenteredTest, InactiveShipCacheDoesNotRefreshEveryTick)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    // First tick always computes (dirty)
+    server.tick();
+    const auto epoch1 = server.world().ships.front().orbitCache.epoch;
+
+    // Second tick — inactive ship → cache should still be valid (TTL not expired)
+    server.tick();
+    const auto epoch2 = server.world().ships.front().orbitCache.epoch;
+
+    // epoch should NOT have changed (inactive ship, TTL ~60 ticks)
+    EXPECT_EQ(epoch2, epoch1);
+}
+
+TEST_F(EarthOnlyCenteredTest, ThrustStartInvalidatesOrbitCache)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    const auto shipId = server.spawnShip(request);
+
+    // Tick 1: coasting
+    server.tick();
+    const auto epoch1 = server.world().ships.front().orbitCache.epoch;
+
+    // Tick 2: still coasting, cache not refreshed
+    server.tick();
+    EXPECT_EQ(server.world().ships.front().orbitCache.epoch, epoch1);
+
+    // Tick 3: start thrust → cache must invalidate and refresh
+    server.updateShipControl(shipId, {1.0, {1.0, 0.0, 0.0, 0.0}, false});
+    server.tick();
+    const auto epoch3 = server.world().ships.front().orbitCache.epoch;
+    EXPECT_GT(epoch3, epoch1);
+}
+
+TEST_F(EarthOnlyCenteredTest, OrbitCacheQualityScoreIsHighForCircularOrbit)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+
+    // Single body → pure two-body → high quality score
+    EXPECT_GT(server.world().ships.front().orbitCache.qualityScore, 0.9);
+}
+
+// ---------------------------------------------------------------------------
+// GeographicTelemetryTest — body-fixed longitude/latitude
+// ---------------------------------------------------------------------------
+
+TEST(GeographicTelemetryTest, BodySpinAngleZeroPeriodReturnsInitialPhase)
+{
+    EXPECT_DOUBLE_EQ(spaceship::server::bodySpinAngle(0.0, 1.5, 100.0), 1.5);
+}
+
+TEST(GeographicTelemetryTest, BodySpinAngleAdvancesWithTime)
+{
+    // Earth sidereal day: 86164.1 s → full rotation = 2π
+    const double angle = spaceship::server::bodySpinAngle(86'164.1, 0.0, 86'164.1);
+    EXPECT_NEAR(angle, 2.0 * std::numbers::pi, 1e-6);
+}
+
+TEST(GeographicTelemetryTest, BodySpinAngleHalfRotation)
+{
+    const double angle = spaceship::server::bodySpinAngle(86'164.1, 0.0, 86'164.1 / 2.0);
+    EXPECT_NEAR(angle, std::numbers::pi, 1e-6);
+}
+
+TEST(GeographicTelemetryTest, ShipAboveEquatorAtZeroSpinHasZeroLongitudeLatitude)
+{
+    // Ship on +x axis, zero spin angle → longitude = 0, latitude = 0
+    const spaceship::shared::Vec3 r {6.771e6, 0.0, 0.0};
+    const auto geo = spaceship::server::toBodyFixedGeographic(r, 6.371e6, 0.0);
+
+    EXPECT_NEAR(geo.longitudeRadians, 0.0, 1e-10);
+    EXPECT_NEAR(geo.latitudeRadians, 0.0, 1e-10);
+    EXPECT_NEAR(geo.altitudeMeters, 400'000.0, 1.0);
+}
+
+TEST(GeographicTelemetryTest, ShipAboveEquatorAfterHalfSiderealDayShiftsLongitude)
+{
+    // Ship still on +x axis, but body rotated by π → body-fixed position flipped
+    const spaceship::shared::Vec3 r {6.771e6, 0.0, 0.0};
+    const auto geo = spaceship::server::toBodyFixedGeographic(r, 6.371e6, std::numbers::pi);
+
+    // After π rotation: x_bf = r.x * cos(π) = -r.x, z_bf = -r.x*sin(π) ≈ 0
+    // longitude = atan2(0, -r.x) = π
+    EXPECT_NEAR(std::abs(geo.longitudeRadians), std::numbers::pi, 1e-6);
+    EXPECT_NEAR(geo.latitudeRadians, 0.0, 1e-10);
+}
+
+TEST(GeographicTelemetryTest, ShipAbovePoleHasLatitude90Degrees)
+{
+    // Ship on +y axis → latitude = π/2 (north pole)
+    const spaceship::shared::Vec3 r {0.0, 6.771e6, 0.0};
+    const auto geo = spaceship::server::toBodyFixedGeographic(r, 6.371e6, 0.0);
+
+    EXPECT_NEAR(geo.latitudeRadians, std::numbers::pi / 2.0, 1e-10);
+}
+
+TEST(GeographicTelemetryTest, NonRotatingBodyLongitudeConstantOverTime)
+{
+    // Sun (period=0) → spin angle always 0 → longitude doesn't change with time
+    const spaceship::shared::Vec3 r {1e9, 0.0, 1e9};
+    const double angle1 = spaceship::server::bodySpinAngle(0.0, 0.0, 0.0);
+    const double angle2 = spaceship::server::bodySpinAngle(0.0, 0.0, 1000.0);
+
+    const auto geo1 = spaceship::server::toBodyFixedGeographic(r, 6.9634e8, angle1);
+    const auto geo2 = spaceship::server::toBodyFixedGeographic(r, 6.9634e8, angle2);
+
+    EXPECT_DOUBLE_EQ(geo1.longitudeRadians, geo2.longitudeRadians);
+}
+
+TEST_F(EarthOnlyCenteredTest, GeographicTelemetryUpdatesEveryTickForInactiveShip)
+{
+    // Even when orbit fit is skipped (inactive), geographic coords should update
+    // because the body rotates. After multiple ticks, longitude should have changed.
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+    const double lon1 = server.world().ships.front().orbitCache.longitudeRadians;
+
+    // Run enough ticks for visible rotation (Earth rotates ~0.004°/tick at 60Hz)
+    for (int i = 0; i < 60; ++i)
+        server.tick();
+
+    const double lon2 = server.world().ships.front().orbitCache.longitudeRadians;
+
+    // Longitude should have changed due to Earth rotation
+    EXPECT_NE(lon1, lon2);
+}
+
+TEST_F(EarthOnlyCenteredTest, AltitudeMatchesLEOInGeographicTelemetry)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+
+    EXPECT_NEAR(server.world().ships.front().orbitCache.altitudeMeters, kLeoAltitude, 200.0);
 }

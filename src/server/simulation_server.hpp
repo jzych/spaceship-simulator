@@ -4,6 +4,7 @@
 
 #include "server/collision_system.hpp"
 #include "server/gravity_system.hpp"
+#include "server/orbit_cache_system.hpp"
 #include "server/integration_system.hpp"
 #include "server/massive_body_motion_system.hpp"
 #include "server/ship_control_system.hpp"
@@ -47,6 +48,7 @@ class SimulationServer
     ShipControlSystem shipControlSystem_ {};
     GravitySystem gravitySystem_ {};
     IntegrationSystem integrationSystem_ {};
+    OrbitCacheSystem orbitCacheSystem_ {};
     CollisionSystem collisionSystem_ {};
     SnapshotSystem snapshotSystem_ {};
 };

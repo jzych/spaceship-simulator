@@ -18,6 +18,10 @@ struct SimulationConfig
     double projectileRadiusMeters {0.1};
     double projectileDefaultTtlSeconds {10.0};
     double projectileMuzzleSpeedMetersPerSecond {1'000.0};
+
+    // Reference body selection hysteresis
+    double referenceBodyHysteresisDelta {0.15};
+    double referenceBodyDwellTimeSeconds {5.0};
 };
 
 } // namespace spaceship::server
