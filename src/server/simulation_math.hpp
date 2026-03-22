@@ -66,15 +66,14 @@ inline shared::Vec3 forwardDirection(const shared::Quaternion& orientation)
     constexpr shared::Vec3 kLocalForward {1.0, 0.0, 0.0};
 
     const shared::Vec3 worldForward = rotateVector(orientation, kLocalForward);
-    const double length =
-        std::sqrt(worldForward.x * worldForward.x + worldForward.y * worldForward.y + worldForward.z * worldForward.z);
+    const double worldForwardLength = length(worldForward);
 
-    if (length == 0.0)
+    if (worldForwardLength == 0.0)
     {
         return kLocalForward;
     }
 
-    return {worldForward.x / length, worldForward.y / length, worldForward.z / length};
+    return scale(worldForward, 1.0 / worldForwardLength);
 }
 
 } // namespace spaceship::server

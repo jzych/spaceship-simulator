@@ -259,6 +259,12 @@ TEST(SimulationMathTest, LengthOfKnownVector)
     EXPECT_DOUBLE_EQ(spaceship::server::length(v), 5.0);
 }
 
+TEST(SimulationMathTest, LengthOfZeroVectorIsZero)
+{
+    const spaceship::shared::Vec3 zero {0.0, 0.0, 0.0};
+    EXPECT_DOUBLE_EQ(spaceship::server::length(zero), 0.0);
+}
+
 TEST(SimulationMathTest, ShipStateAccelerationDefaultsToZero)
 {
     spaceship::server::SimulationServer server;
