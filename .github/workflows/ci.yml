@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential cmake gcovr lcov ninja-build
+          sudo apt-get install -y build-essential cmake gcovr ninja-build
 
       - name: Configure with coverage
         run: |
@@ -53,26 +53,10 @@ jobs:
       - name: Run tests
         run: ctest --test-dir build --output-on-failure
 
-      - name: Generate Codecov coverage report
-        run: |
-          lcov --capture --directory build --output-file coverage.info
-          lcov --remove coverage.info '/usr/*' '*/_deps/*' --output-file coverage.info
-          lcov --list coverage.info
-          test -s coverage.info
-
       - name: Generate SonarCloud coverage report
         run: |
           gcovr -r . build --sonarqube sonar-coverage.xml
           test -s sonar-coverage.xml
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          files: coverage.info
-          flags: unittests
-          token: ${{ secrets.CODECOV_TOKEN }}
-          verbose: true
 
       - name: Upload analysis artifacts
         uses: actions/upload-artifact@v4
