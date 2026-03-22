@@ -19,6 +19,26 @@ inline shared::Vec3 scale(const shared::Vec3& value, double factor)
     return {value.x * factor, value.y * factor, value.z * factor};
 }
 
+inline shared::Vec3 subtract(const shared::Vec3& lhs, const shared::Vec3& rhs)
+{
+    return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
+}
+
+inline double dot(const shared::Vec3& lhs, const shared::Vec3& rhs)
+{
+    return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
+}
+
+inline double lengthSquared(const shared::Vec3& value)
+{
+    return dot(value, value);
+}
+
+inline double length(const shared::Vec3& value)
+{
+    return std::sqrt(lengthSquared(value));
+}
+
 inline shared::Quaternion conjugate(const shared::Quaternion& quaternion)
 {
     return {quaternion.w, -quaternion.x, -quaternion.y, -quaternion.z};
@@ -46,15 +66,14 @@ inline shared::Vec3 forwardDirection(const shared::Quaternion& orientation)
     constexpr shared::Vec3 kLocalForward {1.0, 0.0, 0.0};
 
     const shared::Vec3 worldForward = rotateVector(orientation, kLocalForward);
-    const double length =
-        std::sqrt(worldForward.x * worldForward.x + worldForward.y * worldForward.y + worldForward.z * worldForward.z);
+    const double worldForwardLength = length(worldForward);
 
-    if (length == 0.0)
+    if (worldForwardLength == 0.0)
     {
         return kLocalForward;
     }
 
-    return {worldForward.x / length, worldForward.y / length, worldForward.z / length};
+    return scale(worldForward, 1.0 / worldForwardLength);
 }
 
 } // namespace spaceship::server
