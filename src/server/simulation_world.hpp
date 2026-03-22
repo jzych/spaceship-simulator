@@ -2,6 +2,8 @@
 
 // Defines the in-memory authoritative world state used by server subsystems.
 
+#include "server/orbit_cache.hpp"
+#include "server/reference_body_selector.hpp"
 #include "shared/sim_types.hpp"
 
 #include <string_view>
@@ -37,6 +39,8 @@ struct ShipState
     shared::Vec3 acceleration {};          // gravity only — carried forward each tick
     shared::Vec3 thrustAcceleration {};    // thrust only — recomputed each tick by ShipControlSystem
     shared::Vec3 previousAcceleration {};
+    OrbitCache orbitCache {};
+    ReferenceBodySelector referenceBodySelector {};
 };
 
 struct ProjectileState
