@@ -26,6 +26,7 @@ struct MassiveBodyState
     shared::Transform transform {};
     shared::Velocity velocity {};
     OrbitalParams orbital {};
+    double spinAngleRadians {};               // current body rotation, updated by MassiveBodyMotionSystem
 };
 
 struct ShipState

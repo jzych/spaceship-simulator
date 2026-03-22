@@ -34,8 +34,7 @@ void OrbitCacheSystem::update(
     std::span<ShipState> ships,
     std::span<const MassiveBodyState> massiveBodies,
     shared::Tick currentTick,
-    const SimulationConfig& config,
-    double elapsedSeconds) const
+    const SimulationConfig& config) const
 {
     if (massiveBodies.empty())
         return;
@@ -88,13 +87,9 @@ void OrbitCacheSystem::update(
             ship.orbitCache.wasThrusting = nowActive;
         }
 
-        // Geographic telemetry (cheap): always update for current body spin angle
-        const double spinAngle = bodySpinAngle(
-            refBody->definition.siderealRotationPeriodSeconds,
-            refBody->definition.initialRotationPhaseRadians,
-            elapsedSeconds);
+        // Geographic telemetry (cheap): always update using pre-computed spin angle
         const auto geo = toBodyFixedGeographic(
-            rRel, refBody->definition.radiusMeters, spinAngle);
+            rRel, refBody->definition.radiusMeters, refBody->spinAngleRadians);
         ship.orbitCache.altitudeMeters = geo.altitudeMeters;
         ship.orbitCache.longitudeRadians = geo.longitudeRadians;
         ship.orbitCache.latitudeRadians = geo.latitudeRadians;

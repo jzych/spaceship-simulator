@@ -1,4 +1,5 @@
 #include "server/massive_body_motion_system.hpp"
+#include "server/simulation_math.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -14,6 +15,11 @@ void MassiveBodyMotionSystem::update(
 {
     for (auto& body : massiveBodies)
     {
+        body.spinAngleRadians = bodySpinAngle(
+            body.definition.siderealRotationPeriodSeconds,
+            body.definition.initialRotationPhaseRadians,
+            elapsedSeconds);
+
         if (body.orbital.orbitRadiusMeters == 0.0)
             continue;
 
