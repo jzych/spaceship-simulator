@@ -39,6 +39,35 @@ inline double length(const shared::Vec3& value)
     return std::sqrt(lengthSquared(value));
 }
 
+inline shared::Vec3 cross(const shared::Vec3& lhs, const shared::Vec3& rhs)
+{
+    return {
+        lhs.y * rhs.z - lhs.z * rhs.y,
+        lhs.z * rhs.x - lhs.x * rhs.z,
+        lhs.x * rhs.y - lhs.y * rhs.x,
+    };
+}
+
+inline shared::Vec3 normalize(const shared::Vec3& value)
+{
+    const double len = length(value);
+    constexpr double kEpsilon = 1e-15;
+    if (len < kEpsilon)
+        return {};
+    return scale(value, 1.0 / len);
+}
+
+inline shared::Vec3 negate(const shared::Vec3& value)
+{
+    return {-value.x, -value.y, -value.z};
+}
+
+// Requires planeNormal to be a unit vector.
+inline shared::Vec3 projectOntoPlane(const shared::Vec3& v, const shared::Vec3& planeNormal)
+{
+    return subtract(v, scale(planeNormal, dot(v, planeNormal)));
+}
+
 inline shared::Quaternion conjugate(const shared::Quaternion& quaternion)
 {
     return {quaternion.w, -quaternion.x, -quaternion.y, -quaternion.z};
