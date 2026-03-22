@@ -33,8 +33,9 @@ shared::NetId SpawningSystem::spawnShip(
         makeMassProperties(config.shipDefaultMassKg),
         {config.shipDefaultRadiusMeters},
         {0.0, request.transform.orientation, false},
-        accel,
-        {},
+        accel,  // acceleration (gravity, carry-forward)
+        {},     // thrustAcceleration (zero until first ShipControlSystem update)
+        {},     // previousAcceleration
     });
 
     return shipNetId;
@@ -59,8 +60,9 @@ shared::NetId SpawningSystem::spawnProjectile(
         makeMassProperties(config.projectileMassKg),
         {config.projectileRadiusMeters},
         {config.projectileDefaultTtlSeconds, ship.netId},
-        accel,
-        {},
+        accel,  // acceleration (gravity, carry-forward)
+        {},     // thrustAcceleration (always zero for projectiles)
+        {},     // previousAcceleration
     });
 
     return projectileNetId;

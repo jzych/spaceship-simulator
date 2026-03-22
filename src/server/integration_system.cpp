@@ -7,20 +7,31 @@ namespace spaceship::server
 namespace
 {
 
+// Full acceleration = gravity component + thrust component.
+// Ships carry both fields; projectiles have thrustAcceleration == {0,0,0}.
+template <typename Entity>
+shared::Vec3 fullAcceleration(const Entity& entity)
+{
+    return add(entity.acceleration, entity.thrustAcceleration);
+}
+
 template <typename Entity>
 void integratePosition(Entity& entity, double dt)
 {
-    entity.previousAcceleration = entity.acceleration;
+    const shared::Vec3 a = fullAcceleration(entity);
+    entity.previousAcceleration = a;
     entity.transform.position = add(
         add(entity.transform.position, scale(entity.velocity.linear, dt)),
-        scale(entity.acceleration, 0.5 * dt * dt));
+        scale(a, 0.5 * dt * dt));
 }
 
 template <typename Entity>
 void integrateVelocity(Entity& entity, double dt)
 {
+    // previousAcceleration holds a_n (saved during integratePositions).
+    // acceleration now holds gravity(x_{n+1}); thrustAcceleration is unchanged.
     const shared::Vec3 avgAccel = scale(
-        add(entity.previousAcceleration, entity.acceleration), 0.5);
+        add(entity.previousAcceleration, fullAcceleration(entity)), 0.5);
     entity.velocity.linear = add(entity.velocity.linear, scale(avgAccel, dt));
 }
 

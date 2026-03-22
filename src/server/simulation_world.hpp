@@ -34,7 +34,8 @@ struct ShipState
     shared::MassProperties massProperties {};
     shared::ColliderSphere collider {};
     shared::ShipControl control {};
-    shared::Vec3 acceleration {};
+    shared::Vec3 acceleration {};          // gravity only — carried forward each tick
+    shared::Vec3 thrustAcceleration {};    // thrust only — recomputed each tick by ShipControlSystem
     shared::Vec3 previousAcceleration {};
 };
 
@@ -46,7 +47,8 @@ struct ProjectileState
     shared::MassProperties massProperties {};
     shared::ColliderSphere collider {};
     shared::ProjectileParams params {};
-    shared::Vec3 acceleration {};
+    shared::Vec3 acceleration {};          // gravity only — carried forward each tick
+    shared::Vec3 thrustAcceleration {};    // always zero for projectiles
     shared::Vec3 previousAcceleration {};
 };
 

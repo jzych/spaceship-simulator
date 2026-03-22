@@ -36,23 +36,15 @@ void SimulationServer::tick()
 
     spawningSystem_.update(world_.ships, world_.projectiles, world_.massiveBodies, config_);
 
-    // --- Velocity Verlet: phase 1 ---
-    // GravitySystem OVERWRITES ship.acceleration with gravity at x_n.
-    // ShipControlSystem then ADDS thrust to it, yielding a_n = gravity(x_n) + thrust.
-    // This overwrite-then-add contract MUST be preserved: any code inserted between
-    // the two calls that accumulates into ship.acceleration will corrupt a_n.
-    gravitySystem_.update(world_.massiveBodies, world_.ships, world_.projectiles);
+    // ship.acceleration carries gravity(x_n) from the end of the previous tick.
+    // ShipControlSystem writes fresh thrust into ship.thrustAcceleration.
+    // integratePositions computes a_n = gravity(x_n) + thrust, saves it, advances x.
     shipControlSystem_.update(world_.ships, config_);
-
-    // integratePositions saves a_n into previousAcceleration and advances positions.
     integrationSystem_.integratePositions(world_.ships, world_.projectiles, config_);
 
-    // --- Velocity Verlet: phase 2 ---
-    // GravitySystem OVERWRITES ship.acceleration with gravity at x_{n+1}.
-    // ShipControlSystem then ADDS the same-tick thrust, yielding a_{n+1}.
-    // integrateVelocities uses previousAcceleration (a_n) and acceleration (a_{n+1}).
+    // One gravity call per tick: gravity(x_{n+1}) stored in ship.acceleration.
+    // integrateVelocities computes a_{n+1} = gravity(x_{n+1}) + thrust (same tick).
     gravitySystem_.update(world_.massiveBodies, world_.ships, world_.projectiles);
-    shipControlSystem_.update(world_.ships, config_);
 
     // Verlet phase 2: v_{n+1} = v_n + 0.5*(a_n + a_{n+1})*dt
     integrationSystem_.integrateVelocities(world_.ships, world_.projectiles, config_);
