@@ -71,14 +71,12 @@ TEST_F(SimulationServerSmokeTest, SpawnShipAddsShipToWorld)
     EXPECT_DOUBLE_EQ(ship.massProperties.massKg, 1'000.0);
 }
 
-TEST_F(SimulationServerSmokeTest, UpdateShipControlReturnsFalseWhenShipDoesNotExist)
+TEST_F(SimulationServerSmokeTest, UpdateShipControlForUnknownNetIdIsNoOp)
 {
     constexpr spaceship::shared::NetId kMissingShipNetId = 99U;
-
-    const bool updated =
-        server.updateShipControl(kMissingShipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, true});
-
-    EXPECT_FALSE(updated);
+    // Stale/out-of-order packets for despawned ships must be silently discarded.
+    EXPECT_NO_FATAL_FAILURE(
+        server.updateShipControl(kMissingShipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, true}));
 }
 
 TEST_F(SimulationServerSmokeTest, SpawnShipAssignsSequentialShipIds)
@@ -126,9 +124,8 @@ TEST_F(SimulationServerSmokeTest, UpdateShipControlReplacesExistingControlState)
     const spaceship::shared::ShipControl control {0.75, {0.0, 0.0, 1.0, 0.0}, true};
 
     const auto shipNetId = server.spawnShip(request);
-    const bool updated = server.updateShipControl(shipNetId, control);
+    server.updateShipControl(shipNetId, control);
 
-    ASSERT_TRUE(updated);
     ASSERT_EQ(server.world().ships.size(), 1U);
     const auto& ship = server.world().ships.front();
     EXPECT_DOUBLE_EQ(ship.control.throttle, 0.75);
@@ -154,9 +151,7 @@ TEST_F(ZeroGravityShipBehaviorTest, TickAppliesForwardThrustToShipVelocity)
     };
 
     const auto shipNetId = server.spawnShip(request);
-    ASSERT_TRUE(server.updateShipControl(
-        shipNetId,
-        spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, false}));
+    server.updateShipControl(shipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, false});
 
     server.tick();
 
@@ -175,13 +170,13 @@ TEST_F(ZeroGravityShipBehaviorTest, TickAppliesDesiredOrientationBeforeThrust)
     };
 
     const auto shipNetId = server.spawnShip(request);
-    ASSERT_TRUE(server.updateShipControl(
+    server.updateShipControl(
         shipNetId,
         spaceship::shared::ShipControl {
             1.0,
             {kQuarterTurnZAxisHalfAngleComponent, 0.0, 0.0, kQuarterTurnZAxisHalfAngleComponent},
             false,
-        }));
+        });
 
     server.tick();
 
@@ -207,9 +202,7 @@ TEST_F(ZeroGravityShipBehaviorTest, TickDrivenFireSpawnsProjectileAndClearsFireF
         1.0 + kExpectedProjectileVelocityX * spaceship::shared::constants::kFixedDeltaSeconds;
 
     const auto shipNetId = server.spawnShip(request);
-    ASSERT_TRUE(server.updateShipControl(
-        shipNetId,
-        spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, true}));
+    server.updateShipControl(shipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, true});
 
     EXPECT_TRUE(server.world().projectiles.empty());
 

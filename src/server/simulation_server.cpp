@@ -22,16 +22,11 @@ shared::NetId SimulationServer::spawnShip(const ShipSpawnRequest& request)
     return spawningSystem_.spawnShip(world_.ships, request, config_, world_.massiveBodies);
 }
 
-bool SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control)
+void SimulationServer::updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control)
 {
     const auto ship = findShip(shipNetId);
-    if (!ship.has_value())
-    {
-        return false;
-    }
-
-    ship->get().control = control;
-    return true;
+    if (ship.has_value())
+        ship->get().control = control;
 }
 
 void SimulationServer::tick()

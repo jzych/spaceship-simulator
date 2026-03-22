@@ -26,7 +26,7 @@ class SimulationServer
     SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
 
     shared::NetId spawnShip(const ShipSpawnRequest& request);
-    bool updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
+    void updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
     void tick();
 
     [[nodiscard]] shared::Tick tickCount() const;
