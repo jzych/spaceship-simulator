@@ -68,6 +68,52 @@ inline shared::Vec3 projectOntoPlane(const shared::Vec3& v, const shared::Vec3& 
     return subtract(v, scale(planeNormal, dot(v, planeNormal)));
 }
 
+struct GeographicCoordinates
+{
+    double altitudeMeters {};
+    double longitudeRadians {};
+    double latitudeRadians {};
+};
+
+// Compute body spin angle at elapsed time from sidereal period and initial phase.
+inline double bodySpinAngle(double siderealPeriodSeconds, double initialPhaseRadians, double elapsedSeconds)
+{
+    if (siderealPeriodSeconds <= 0.0)
+        return initialPhaseRadians;
+    constexpr double kTwoPi = 2.0 * 3.14159265358979323846;
+    const double angularVelocity = kTwoPi / siderealPeriodSeconds;
+    return initialPhaseRadians + angularVelocity * elapsedSeconds;
+}
+
+// Transform inertial-relative position to body-fixed geographic coordinates.
+// spinAngle: current rotation angle of the body around its spin axis (Y-axis).
+inline GeographicCoordinates toBodyFixedGeographic(
+    const shared::Vec3& relativePosition,
+    double bodyRadius,
+    double spinAngle)
+{
+    const double r = length(relativePosition);
+    const double cosTheta = std::cos(spinAngle);
+    const double sinTheta = std::sin(spinAngle);
+
+    // Rotate by -spinAngle around Y-axis to get body-fixed position
+    const double xBf = relativePosition.x * cosTheta + relativePosition.z * sinTheta;
+    const double yBf = relativePosition.y;
+    const double zBf = -relativePosition.x * sinTheta + relativePosition.z * cosTheta;
+
+    GeographicCoordinates geo {};
+    geo.altitudeMeters = r - bodyRadius;
+
+    constexpr double kMinRadius = 1.0;
+    if (r < kMinRadius)
+        return geo;
+
+    geo.longitudeRadians = std::atan2(zBf, xBf);
+    geo.latitudeRadians = std::asin(yBf / r);
+
+    return geo;
+}
+
 inline shared::Quaternion conjugate(const shared::Quaternion& quaternion)
 {
     return {quaternion.w, -quaternion.x, -quaternion.y, -quaternion.z};

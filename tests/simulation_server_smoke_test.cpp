@@ -1208,3 +1208,106 @@ TEST_F(EarthOnlyCenteredTest, OrbitCacheQualityScoreIsHighForCircularOrbit)
     // Single body → pure two-body → high quality score
     EXPECT_GT(server.world().ships.front().orbitCache.qualityScore, 0.9);
 }
+
+// ---------------------------------------------------------------------------
+// GeographicTelemetryTest — body-fixed longitude/latitude
+// ---------------------------------------------------------------------------
+
+TEST(GeographicTelemetryTest, BodySpinAngleZeroPeriodReturnsInitialPhase)
+{
+    EXPECT_DOUBLE_EQ(spaceship::server::bodySpinAngle(0.0, 1.5, 100.0), 1.5);
+}
+
+TEST(GeographicTelemetryTest, BodySpinAngleAdvancesWithTime)
+{
+    // Earth sidereal day: 86164.1 s → full rotation = 2π
+    const double angle = spaceship::server::bodySpinAngle(86'164.1, 0.0, 86'164.1);
+    EXPECT_NEAR(angle, 2.0 * std::numbers::pi, 1e-6);
+}
+
+TEST(GeographicTelemetryTest, BodySpinAngleHalfRotation)
+{
+    const double angle = spaceship::server::bodySpinAngle(86'164.1, 0.0, 86'164.1 / 2.0);
+    EXPECT_NEAR(angle, std::numbers::pi, 1e-6);
+}
+
+TEST(GeographicTelemetryTest, ShipAboveEquatorAtZeroSpinHasZeroLongitudeLatitude)
+{
+    // Ship on +x axis, zero spin angle → longitude = 0, latitude = 0
+    const spaceship::shared::Vec3 r {6.771e6, 0.0, 0.0};
+    const auto geo = spaceship::server::toBodyFixedGeographic(r, 6.371e6, 0.0);
+
+    EXPECT_NEAR(geo.longitudeRadians, 0.0, 1e-10);
+    EXPECT_NEAR(geo.latitudeRadians, 0.0, 1e-10);
+    EXPECT_NEAR(geo.altitudeMeters, 400'000.0, 1.0);
+}
+
+TEST(GeographicTelemetryTest, ShipAboveEquatorAfterHalfSiderealDayShiftsLongitude)
+{
+    // Ship still on +x axis, but body rotated by π → body-fixed position flipped
+    const spaceship::shared::Vec3 r {6.771e6, 0.0, 0.0};
+    const auto geo = spaceship::server::toBodyFixedGeographic(r, 6.371e6, std::numbers::pi);
+
+    // After π rotation: x_bf = r.x * cos(π) = -r.x, z_bf = -r.x*sin(π) ≈ 0
+    // longitude = atan2(0, -r.x) = π
+    EXPECT_NEAR(std::abs(geo.longitudeRadians), std::numbers::pi, 1e-6);
+    EXPECT_NEAR(geo.latitudeRadians, 0.0, 1e-10);
+}
+
+TEST(GeographicTelemetryTest, ShipAbovePoleHasLatitude90Degrees)
+{
+    // Ship on +y axis → latitude = π/2 (north pole)
+    const spaceship::shared::Vec3 r {0.0, 6.771e6, 0.0};
+    const auto geo = spaceship::server::toBodyFixedGeographic(r, 6.371e6, 0.0);
+
+    EXPECT_NEAR(geo.latitudeRadians, std::numbers::pi / 2.0, 1e-10);
+}
+
+TEST(GeographicTelemetryTest, NonRotatingBodyLongitudeConstantOverTime)
+{
+    // Sun (period=0) → spin angle always 0 → longitude doesn't change with time
+    const spaceship::shared::Vec3 r {1e9, 0.0, 1e9};
+    const double angle1 = spaceship::server::bodySpinAngle(0.0, 0.0, 0.0);
+    const double angle2 = spaceship::server::bodySpinAngle(0.0, 0.0, 1000.0);
+
+    const auto geo1 = spaceship::server::toBodyFixedGeographic(r, 6.9634e8, angle1);
+    const auto geo2 = spaceship::server::toBodyFixedGeographic(r, 6.9634e8, angle2);
+
+    EXPECT_DOUBLE_EQ(geo1.longitudeRadians, geo2.longitudeRadians);
+}
+
+TEST_F(EarthOnlyCenteredTest, GeographicTelemetryUpdatesEveryTickForInactiveShip)
+{
+    // Even when orbit fit is skipped (inactive), geographic coords should update
+    // because the body rotates. After multiple ticks, longitude should have changed.
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+    const double lon1 = server.world().ships.front().orbitCache.longitudeRadians;
+
+    // Run enough ticks for visible rotation (Earth rotates ~0.004°/tick at 60Hz)
+    for (int i = 0; i < 60; ++i)
+        server.tick();
+
+    const double lon2 = server.world().ships.front().orbitCache.longitudeRadians;
+
+    // Longitude should have changed due to Earth rotation
+    EXPECT_NE(lon1, lon2);
+}
+
+TEST_F(EarthOnlyCenteredTest, AltitudeMatchesLEOInGeographicTelemetry)
+{
+    const double vOrbit = std::sqrt(kEarthMu / kLeoRadius);
+    spaceship::server::ShipSpawnRequest request {};
+    request.transform.position = {kLeoRadius, 0.0, 0.0};
+    request.velocity = {{0.0, vOrbit, 0.0}};
+    server.spawnShip(request);
+
+    server.tick();
+
+    EXPECT_NEAR(server.world().ships.front().orbitCache.altitudeMeters, kLeoAltitude, 200.0);
+}

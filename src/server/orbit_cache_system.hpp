@@ -18,7 +18,8 @@ class OrbitCacheSystem
         std::span<ShipState> ships,
         std::span<const MassiveBodyState> massiveBodies,
         shared::Tick currentTick,
-        const SimulationConfig& config) const;
+        const SimulationConfig& config,
+        double elapsedSeconds) const;
 };
 
 } // namespace spaceship::server

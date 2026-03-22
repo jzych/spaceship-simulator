@@ -34,7 +34,8 @@ void OrbitCacheSystem::update(
     std::span<ShipState> ships,
     std::span<const MassiveBodyState> massiveBodies,
     shared::Tick currentTick,
-    const SimulationConfig& config) const
+    const SimulationConfig& config,
+    double elapsedSeconds) const
 {
     if (massiveBodies.empty())
         return;
@@ -60,34 +61,43 @@ void OrbitCacheSystem::update(
             (currentTick >= ship.orbitCache.validUntilTick) ||
             (ship.orbitCache.epoch == 0);
 
-        if (!needsRefresh)
-            continue;
-
         // Find reference body
         const auto* refBody = findBody(massiveBodies, selection.bodyId);
         if (refBody == nullptr)
             continue;
 
-        // Compute relative state
         const shared::Vec3 rRel = subtract(ship.transform.position, refBody->transform.position);
-        const shared::Vec3 vRel = subtract(ship.velocity.linear, refBody->velocity.linear);
-        const double mu = refBody->definition.muMetersCubedPerSecondSquared;
-        const double bodyRadius = refBody->definition.radiusMeters;
 
-        // Fit orbit
-        ship.orbitCache = fitOrbit(rRel, vRel, mu, bodyRadius, selection.bodyId, currentTick);
+        // Orbit fit (expensive): only when refresh is needed
+        if (needsRefresh)
+        {
+            const shared::Vec3 vRel = subtract(ship.velocity.linear, refBody->velocity.linear);
+            const double mu = refBody->definition.muMetersCubedPerSecondSquared;
+            const double bodyRadius = refBody->definition.radiusMeters;
 
-        // Compute quality score from total acceleration
-        const shared::Vec3 totalAccel = add(ship.acceleration, ship.thrustAcceleration);
-        ship.orbitCache.qualityScore = computeQualityScore(totalAccel, rRel, mu);
+            ship.orbitCache = fitOrbit(rRel, vRel, mu, bodyRadius, selection.bodyId, currentTick);
 
-        // Set TTL based on active/inactive status
-        const shared::Tick refreshInterval = nowActive
-            ? kActiveShipRefreshIntervalTicks
-            : kInactiveShipRefreshIntervalTicks;
-        ship.orbitCache.validUntilTick = currentTick + refreshInterval;
-        ship.orbitCache.dirty = false;
-        ship.orbitCache.wasThrusting = nowActive;
+            const shared::Vec3 totalAccel = add(ship.acceleration, ship.thrustAcceleration);
+            ship.orbitCache.qualityScore = computeQualityScore(totalAccel, rRel, mu);
+
+            const shared::Tick refreshInterval = nowActive
+                ? kActiveShipRefreshIntervalTicks
+                : kInactiveShipRefreshIntervalTicks;
+            ship.orbitCache.validUntilTick = currentTick + refreshInterval;
+            ship.orbitCache.dirty = false;
+            ship.orbitCache.wasThrusting = nowActive;
+        }
+
+        // Geographic telemetry (cheap): always update for current body spin angle
+        const double spinAngle = bodySpinAngle(
+            refBody->definition.siderealRotationPeriodSeconds,
+            refBody->definition.initialRotationPhaseRadians,
+            elapsedSeconds);
+        const auto geo = toBodyFixedGeographic(
+            rRel, refBody->definition.radiusMeters, spinAngle);
+        ship.orbitCache.altitudeMeters = geo.altitudeMeters;
+        ship.orbitCache.longitudeRadians = geo.longitudeRadians;
+        ship.orbitCache.latitudeRadians = geo.latitudeRadians;
     }
 }
 

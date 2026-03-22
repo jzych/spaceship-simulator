@@ -50,7 +50,7 @@ void SimulationServer::tick()
     integrationSystem_.integrateVelocities(world_.ships, world_.projectiles, config_);
 
     integrationSystem_.decrementTtl(world_.projectiles, config_);
-    orbitCacheSystem_.update(world_.ships, world_.massiveBodies, tickCount_ + 1, config_);
+    orbitCacheSystem_.update(world_.ships, world_.massiveBodies, tickCount_ + 1, config_, elapsedSeconds_);
     collisionSystem_.update(world_.projectiles);
 
     ++tickCount_;

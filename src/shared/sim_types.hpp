@@ -74,6 +74,8 @@ struct MassiveBodyDefinition
     std::string_view name {};
     double muMetersCubedPerSecondSquared {};
     double radiusMeters {};
+    double siderealRotationPeriodSeconds {};   // 0 = non-rotating
+    double initialRotationPhaseRadians {};
 };
 
 namespace constants
