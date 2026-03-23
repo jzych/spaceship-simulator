@@ -11,33 +11,34 @@ add_library(spaceship-shared INTERFACE)
 target_include_directories(spaceship-shared INTERFACE src)
 
 add_library(spaceship-server
-    src/server/bootstrap.cpp
-    src/server/bootstrap.hpp
-    src/server/collision_system.cpp
-    src/server/collision_system.hpp
-    src/server/gravity_system.cpp
-    src/server/gravity_system.hpp
-    src/server/massive_body_motion_system.cpp
-    src/server/massive_body_motion_system.hpp
-    src/server/orbit_cache.hpp
-    src/server/orbit_fitting.cpp
-    src/server/orbit_fitting.hpp
-    src/server/reference_body_selector.cpp
-    src/server/reference_body_selector.hpp
-    src/server/orbit_cache_system.cpp
-    src/server/orbit_cache_system.hpp
-    src/server/ship_control_system.cpp
-    src/server/ship_control_system.hpp
-    src/server/integration_system.cpp
-    src/server/integration_system.hpp
-    src/server/simulation_config.hpp
-    src/server/simulation_server.cpp
-    src/server/simulation_server.hpp
-    src/server/simulation_world.hpp
-    src/server/snapshot_system.cpp
-    src/server/snapshot_system.hpp
-    src/server/spawning_system.cpp
-    src/server/spawning_system.hpp
+    src/server/collision/collision_system.cpp
+    src/server/collision/collision_system.hpp
+    src/server/control/ship_control_system.cpp
+    src/server/control/ship_control_system.hpp
+    src/server/simulation/bootstrap.cpp
+    src/server/simulation/bootstrap.hpp
+    src/server/simulation/gravity/gravity_system.cpp
+    src/server/simulation/gravity/gravity_system.hpp
+    src/server/simulation/gravity/massive_body_motion_system.cpp
+    src/server/simulation/gravity/massive_body_motion_system.hpp
+    src/server/simulation/gravity/orbit_cache.hpp
+    src/server/simulation/gravity/orbit_cache_system.cpp
+    src/server/simulation/gravity/orbit_cache_system.hpp
+    src/server/simulation/gravity/orbit_fitting.cpp
+    src/server/simulation/gravity/orbit_fitting.hpp
+    src/server/simulation/gravity/reference_body_selector.cpp
+    src/server/simulation/gravity/reference_body_selector.hpp
+    src/server/simulation/integration_system.cpp
+    src/server/simulation/integration_system.hpp
+    src/server/simulation/simulation_config.hpp
+    src/server/simulation/simulation_math.hpp
+    src/server/simulation/simulation_server.cpp
+    src/server/simulation/simulation_server.hpp
+    src/server/simulation/simulation_world.hpp
+    src/server/snapshot/snapshot_system.cpp
+    src/server/snapshot/snapshot_system.hpp
+    src/server/spawning/spawning_system.cpp
+    src/server/spawning/spawning_system.hpp
 )
 target_include_directories(spaceship-server PUBLIC src)
 target_link_libraries(spaceship-server PUBLIC spaceship-shared)
@@ -64,22 +65,27 @@ if(BUILD_TESTING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(spaceship-simulator-tests
-        tests/collision_system_test.cpp
-        tests/geographic_telemetry_test.cpp
-        tests/gravity_system_test.cpp
-        tests/gravity_test.cpp
-        tests/integration_system_test.cpp
-        tests/integration_test.cpp
-        tests/massive_body_motion_test.cpp
-        tests/orbit_cache_test.cpp
-        tests/orbit_fitting_test.cpp
-        tests/reference_body_selector_test.cpp
-        tests/ship_behavior_test.cpp
-        tests/ship_control_system_test.cpp
-        tests/simulation_math_test.cpp
-        tests/simulation_server_test.cpp
-        tests/snapshot_system_test.cpp
-        tests/spawning_system_test.cpp
+        src/server/collision/tests/collision_system_test.cpp
+        src/server/control/tests/ship_control_system_test.cpp
+        src/server/simulation/gravity/tests/geographic_telemetry_test.cpp
+        src/server/simulation/gravity/tests/gravity_system_test.cpp
+        src/server/simulation/gravity/tests/gravity_test.cpp
+        src/server/simulation/gravity/tests/massive_body_motion_test.cpp
+        src/server/simulation/gravity/tests/orbit_cache_test.cpp
+        src/server/simulation/gravity/tests/orbit_fitting_test.cpp
+        src/server/simulation/gravity/tests/reference_body_selector_test.cpp
+        src/server/simulation/tests/integration_system_test.cpp
+        src/server/simulation/tests/integration_test.cpp
+        src/server/simulation/tests/ship_behavior_test.cpp
+        src/server/simulation/tests/simulation_math_test.cpp
+        src/server/simulation/tests/simulation_server_test.cpp
+        src/server/snapshot/tests/snapshot_system_test.cpp
+        src/server/spawning/tests/spawning_system_test.cpp
+    )
+    target_include_directories(spaceship-simulator-tests
+        PRIVATE
+            src
+            src/server/tests
     )
     target_link_libraries(spaceship-simulator-tests
         PRIVATE
