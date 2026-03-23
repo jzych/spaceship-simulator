@@ -64,7 +64,22 @@ if(BUILD_TESTING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(spaceship-simulator-tests
-        tests/simulation_server_smoke_test.cpp
+        tests/collision_system_test.cpp
+        tests/geographic_telemetry_test.cpp
+        tests/gravity_system_test.cpp
+        tests/gravity_test.cpp
+        tests/integration_system_test.cpp
+        tests/integration_test.cpp
+        tests/massive_body_motion_test.cpp
+        tests/orbit_cache_test.cpp
+        tests/orbit_fitting_test.cpp
+        tests/reference_body_selector_test.cpp
+        tests/ship_behavior_test.cpp
+        tests/ship_control_system_test.cpp
+        tests/simulation_math_test.cpp
+        tests/simulation_server_test.cpp
+        tests/snapshot_system_test.cpp
+        tests/spawning_system_test.cpp
     )
     target_link_libraries(spaceship-simulator-tests
         PRIVATE
