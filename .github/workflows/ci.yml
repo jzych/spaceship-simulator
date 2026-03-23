@@ -90,10 +90,10 @@ jobs:
             -Dsonar.organization=jzych
             -Dsonar.projectKey=jzych_spaceship-simulator
             -Dsonar.sources=src
-            -Dsonar.tests=tests
-            -Dsonar.test.inclusions=tests/**
+            -Dsonar.tests=src
+            -Dsonar.test.inclusions=src/**/tests/**
             -Dsonar.exclusions=.ignore/**,build/**,docs/**,scripts/**
-            -Dsonar.coverage.exclusions=tests/**,src/main.cpp
+            -Dsonar.coverage.exclusions=src/**/tests/**,src/main.cpp
             -Dsonar.cfamily.compile-commands=build/compile_commands.json
             -Dsonar.coverageReportPaths=sonar-coverage.xml
             -Dsonar.javascript.file.suffixes=-
