@@ -4,6 +4,7 @@
 
 #include "server/simulation/gravity/orbit_cache.hpp"
 #include "server/simulation/gravity/reference_body_selector.hpp"
+#include "server/simulation/timestep/timestep_types.hpp"
 #include "shared/sim_types.hpp"
 
 #include <optional>
@@ -43,6 +44,7 @@ struct ShipState
     shared::Vec3 previousAcceleration {};
     OrbitCache orbitCache {};
     ReferenceBodySelector referenceBodySelector {};
+    TimestepState timestepState {};
 };
 
 struct ProjectileState
@@ -56,6 +58,7 @@ struct ProjectileState
     shared::Vec3 acceleration {};          // gravity only — carried forward each tick
     shared::Vec3 thrustAcceleration {};    // always zero for projectiles
     shared::Vec3 previousAcceleration {};
+    TimestepState timestepState {};
 };
 
 // Request type passed by callers to SimulationServer::spawnShip.

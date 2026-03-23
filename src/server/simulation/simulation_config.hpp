@@ -2,6 +2,7 @@
 
 // Holds tunable fixed-step parameters for the authoritative simulation server.
 
+#include "server/simulation/timestep/timestep_types.hpp"
 #include "shared/sim_types.hpp"
 
 namespace spaceship::server
@@ -22,6 +23,10 @@ struct SimulationConfig
     // Reference body selection hysteresis
     double referenceBodyHysteresisDelta {0.15};
     double referenceBodyDwellTimeSeconds {5.0};
+
+    // Adaptive timestep control (off by default — preserves fixed-step behaviour)
+    bool useAdaptiveTimestep {false};
+    TimestepLadderConfig timestepLadder {};
 };
 
 } // namespace spaceship::server

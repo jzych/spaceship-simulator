@@ -7,11 +7,14 @@
 #include "server/simulation/gravity/massive_body_motion_system.hpp"
 #include "server/simulation/gravity/orbit_cache_system.hpp"
 #include "server/simulation/integration_system.hpp"
+#include "server/simulation/timestep/timescale_heuristics.hpp"
+#include "server/simulation/timestep/timestep_controller.hpp"
 #include "server/snapshot/snapshot_system.hpp"
 #include "server/spawning/spawning_system.hpp"
 
 #include <algorithm>
 #include <unordered_map>
+#include <vector>
 
 namespace spaceship::server
 {
@@ -40,6 +43,9 @@ struct SimulationServer::Impl
     OrbitCacheSystem        orbitCacheSystem {};
     CollisionSystem         collisionSystem {};
     SnapshotSystem          snapshotSystem {};
+
+    // Adaptive timestep diagnostics (most recent frame).
+    std::vector<TimestepDiagnostics> lastTimestepDiagnostics {};
 
     std::optional<std::reference_wrapper<ShipState>> findShip(shared::NetId shipNetId)
     {
@@ -94,30 +100,124 @@ void SimulationServer::updateShipControl(
 
 void SimulationServer::tick()
 {
-    impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
-    impl_->elapsedSeconds += impl_->config.fixedDeltaSeconds;
+    const double frameDt = impl_->config.fixedDeltaSeconds;
 
-    impl_->spawningSystem.update(
-        impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
+    if (!impl_->config.useAdaptiveTimestep)
+    {
+        // ---- Fixed-step path (original behaviour, unchanged) ----
+        impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
+        impl_->elapsedSeconds += frameDt;
 
-    // ship.acceleration carries gravity(x_n) from the end of the previous tick.
-    // ShipControlSystem writes fresh thrust into ship.thrustAcceleration.
-    // integratePositions computes a_n = gravity(x_n) + thrust, saves it, advances x.
-    impl_->shipControlSystem.update(impl_->world.ships, impl_->config);
-    impl_->integrationSystem.integratePositions(
-        impl_->world.ships, impl_->world.projectiles, impl_->config);
+        impl_->spawningSystem.update(
+            impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
 
-    // One gravity call per tick: gravity(x_{n+1}) stored in ship.acceleration.
-    // integrateVelocities computes a_{n+1} = gravity(x_{n+1}) + thrust (same tick).
-    impl_->gravitySystem.update(
-        impl_->world.massiveBodies, impl_->world.ships, impl_->world.projectiles);
+        impl_->shipControlSystem.update(impl_->world.ships, impl_->config);
+        impl_->integrationSystem.integratePositions(
+            impl_->world.ships, impl_->world.projectiles, impl_->config);
 
-    // Verlet phase 2: v_{n+1} = v_n + 0.5*(a_n + a_{n+1})*dt
-    impl_->integrationSystem.integrateVelocities(
-        impl_->world.ships, impl_->world.projectiles, impl_->config);
+        impl_->gravitySystem.update(
+            impl_->world.massiveBodies, impl_->world.ships, impl_->world.projectiles);
 
-    // TTL decrement and projectile expiry are both projectile-lifetime concerns.
-    // tickCount_ + 1 = the tick being committed (pre-increment).
+        impl_->integrationSystem.integrateVelocities(
+            impl_->world.ships, impl_->world.projectiles, impl_->config);
+    }
+    else
+    {
+        // ---- Adaptive substep path ----
+        const TimestepLadderConfig& ladder = impl_->config.timestepLadder;
+
+        impl_->spawningSystem.update(
+            impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
+
+        // ShipControlSystem is called once per outer tick (thrust direction doesn't change
+        // within a frame — only the magnitude applied per substep changes via dt).
+        impl_->shipControlSystem.update(impl_->world.ships, impl_->config);
+
+        // Determine the global minimum ladder level across all entities
+        // (conservative: all entities share the tightest required dt this frame).
+        // Retain per-entity dtTarget so diagnostics can report the pre-quantization heuristic value.
+        struct EntityHeuristicResult { shared::NetId netId; double dtTarget; };
+        std::vector<EntityHeuristicResult> entityHeuristics;
+        entityHeuristics.reserve(impl_->world.ships.size() + impl_->world.projectiles.size());
+
+        int kGlobal = 0;  // start at coarsest
+        for (auto& ship : impl_->world.ships)
+        {
+            const double dtTarget = computeTargetTimestep(
+                ship.transform.position,
+                ship.velocity.linear,
+                ship.acceleration,
+                ship.timestepState.aPrev,
+                ship.timestepState.dtPrev,
+                impl_->world.massiveBodies,
+                ladder);
+            const int kDesired = TimestepController::quantizeToLadder(dtTarget, ladder.dt_max, ladder.k_max);
+            const int kApplied = TimestepController::applyHysteresis(kDesired, frameDt, ship.timestepState, ladder);
+            kGlobal = std::max(kGlobal, kApplied);
+            entityHeuristics.push_back({ship.netId, dtTarget});
+        }
+        for (auto& proj : impl_->world.projectiles)
+        {
+            const double dtTarget = computeTargetTimestep(
+                proj.transform.position,
+                proj.velocity.linear,
+                proj.acceleration,
+                proj.timestepState.aPrev,
+                proj.timestepState.dtPrev,
+                impl_->world.massiveBodies,
+                ladder);
+            const int kDesired = TimestepController::quantizeToLadder(dtTarget, ladder.dt_max, ladder.k_max);
+            const int kApplied = TimestepController::applyHysteresis(kDesired, frameDt, proj.timestepState, ladder);
+            kGlobal = std::max(kGlobal, kApplied);
+            entityHeuristics.push_back({proj.netId, dtTarget});
+        }
+
+        const SubstepPlan plan = TimestepController::planSubsteps(frameDt, kGlobal, ladder.dt_max);
+
+        // Record diagnostics — dtRequested is the raw heuristic target (pre-quantization).
+        impl_->lastTimestepDiagnostics.clear();
+        for (const auto& [netId, dtTarget] : entityHeuristics)
+        {
+            impl_->lastTimestepDiagnostics.push_back({
+                netId,
+                dtTarget,
+                plan.dt,
+                plan.k,
+                plan.count,
+            });
+        }
+
+        // Execute substeps.
+        for (int s = 0; s < plan.count; ++s)
+        {
+            impl_->massiveBodyMotionSystem.update(
+                impl_->world.massiveBodies, impl_->elapsedSeconds);
+            impl_->elapsedSeconds += plan.dt;
+
+            impl_->integrationSystem.integratePositions(
+                impl_->world.ships, impl_->world.projectiles, plan.dt);
+
+            impl_->gravitySystem.update(
+                impl_->world.massiveBodies, impl_->world.ships, impl_->world.projectiles);
+
+            impl_->integrationSystem.integrateVelocities(
+                impl_->world.ships, impl_->world.projectiles, plan.dt);
+
+            // Update jerk history on each entity after each substep.
+            for (auto& ship : impl_->world.ships)
+            {
+                ship.timestepState.aPrev  = ship.acceleration;
+                ship.timestepState.dtPrev = plan.dt;
+            }
+            for (auto& proj : impl_->world.projectiles)
+            {
+                proj.timestepState.aPrev  = proj.acceleration;
+                proj.timestepState.dtPrev = plan.dt;
+            }
+        }
+    }
+
+    // Post-integration systems run once per outer tick regardless of substep count.
     impl_->collisionSystem.decrementTtl(impl_->world.projectiles, impl_->config);
     impl_->orbitCacheSystem.update(
         impl_->world.ships, impl_->world.massiveBodies, impl_->tickCount + 1, impl_->config);
@@ -149,6 +249,11 @@ const SimulationWorld& SimulationServer::world() const
 const std::string& SimulationServer::lastSnapshotSummary() const
 {
     return impl_->lastSnapshotSummary;
+}
+
+const std::vector<TimestepDiagnostics>& SimulationServer::timestepDiagnostics() const
+{
+    return impl_->lastTimestepDiagnostics;
 }
 
 } // namespace spaceship::server

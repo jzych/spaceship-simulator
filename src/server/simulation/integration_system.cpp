@@ -54,10 +54,7 @@ void IntegrationSystem::integratePositions(
     std::span<ProjectileState> projectiles,
     const SimulationConfig& config) const
 {
-    for (auto& ship : ships)
-        integratePosition(ship, config.fixedDeltaSeconds);
-    for (auto& projectile : projectiles)
-        integratePosition(projectile, config.fixedDeltaSeconds);
+    integratePositions(ships, projectiles, config.fixedDeltaSeconds);
 }
 
 void IntegrationSystem::integrateVelocities(
@@ -65,10 +62,29 @@ void IntegrationSystem::integrateVelocities(
     std::span<ProjectileState> projectiles,
     const SimulationConfig& config) const
 {
+    integrateVelocities(ships, projectiles, config.fixedDeltaSeconds);
+}
+
+void IntegrationSystem::integratePositions(
+    std::span<ShipState> ships,
+    std::span<ProjectileState> projectiles,
+    double dt) const
+{
     for (auto& ship : ships)
-        integrateVelocity(ship, config.fixedDeltaSeconds);
+        integratePosition(ship, dt);
     for (auto& projectile : projectiles)
-        integrateVelocity(projectile, config.fixedDeltaSeconds);
+        integratePosition(projectile, dt);
+}
+
+void IntegrationSystem::integrateVelocities(
+    std::span<ShipState> ships,
+    std::span<ProjectileState> projectiles,
+    double dt) const
+{
+    for (auto& ship : ships)
+        integrateVelocity(ship, dt);
+    for (auto& projectile : projectiles)
+        integrateVelocity(projectile, dt);
 }
 
 } // namespace spaceship::server
