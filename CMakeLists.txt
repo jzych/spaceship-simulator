@@ -11,8 +11,13 @@ add_library(spaceship-shared INTERFACE)
 target_include_directories(spaceship-shared INTERFACE src)
 
 add_library(spaceship-server
+    src/server/collision/broad_phase.cpp
+    src/server/collision/broad_phase.hpp
     src/server/collision/collision_system.cpp
     src/server/collision/collision_system.hpp
+    src/server/collision/collision_types.hpp
+    src/server/collision/sweep_math.cpp
+    src/server/collision/sweep_math.hpp
     src/server/control/ship_control_system.cpp
     src/server/control/ship_control_system.hpp
     src/server/simulation/bootstrap.cpp
@@ -70,7 +75,10 @@ if(BUILD_TESTING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(spaceship-simulator-tests
+        src/server/collision/tests/broad_phase_test.cpp
+        src/server/collision/tests/collision_pipeline_test.cpp
         src/server/collision/tests/collision_system_test.cpp
+        src/server/collision/tests/sweep_math_test.cpp
         src/server/control/tests/ship_control_system_test.cpp
         src/server/simulation/gravity/tests/geographic_telemetry_test.cpp
         src/server/simulation/gravity/tests/gravity_system_test.cpp

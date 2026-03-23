@@ -48,14 +48,21 @@ shared::NetId SpawningSystem::spawnProjectile(
     std::span<const MassiveBodyState> massiveBodies)
 {
     const shared::NetId projectileNetId = nextProjectileNetId_++;
+    const shared::Vec3 forward = forwardDirection(ship.transform.orientation);
     const shared::Vec3 muzzleVelocity =
-        scale(forwardDirection(ship.transform.orientation), config.projectileMuzzleSpeedMetersPerSecond);
+        scale(forward, config.projectileMuzzleSpeedMetersPerSecond);
+
+    // Spawn outside the ship hull: ship_centre + forward * (ship_radius + proj_radius + skin)
+    const double spawnOffset =
+        ship.collider.radiusMeters + config.projectileRadiusMeters + config.projectileSpawnOffsetSkinMeters;
+    const shared::Vec3 spawnPos = add(ship.transform.position, scale(forward, spawnOffset));
+
     const shared::Vec3 accel =
-        computeGravitationalAcceleration(ship.transform.position, massiveBodies);
+        computeGravitationalAcceleration(spawnPos, massiveBodies);
 
     projectiles.push_back(ProjectileState {
         projectileNetId,
-        {ship.transform.position, ship.transform.orientation},
+        {spawnPos, ship.transform.orientation},
         {add(ship.velocity.linear, muzzleVelocity)},
         makeMassProperties(config.projectileMassKg),
         {config.projectileRadiusMeters},

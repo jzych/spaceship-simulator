@@ -2,13 +2,13 @@
 
 // Defines the in-memory authoritative world state used by server subsystems.
 
+#include "server/collision/collision_types.hpp"
 #include "server/simulation/gravity/orbit_cache.hpp"
 #include "server/simulation/gravity/reference_body_selector.hpp"
 #include "server/simulation/timestep/timestep_types.hpp"
 #include "shared/sim_types.hpp"
 
 #include <optional>
-#include <string_view>
 #include <vector>
 
 namespace spaceship::server
@@ -70,17 +70,12 @@ struct ShipSpawnRequest
     std::optional<shared::Vec3> initialAcceleration {};
 };
 
-struct PendingEvent
-{
-    std::string_view description {};
-};
-
 struct SimulationWorld
 {
     std::vector<MassiveBodyState> massiveBodies {};
-    std::vector<ShipState> ships {};
-    std::vector<ProjectileState> projectiles {};
-    std::vector<PendingEvent> events {};
+    std::vector<ShipState>        ships          {};
+    std::vector<ProjectileState>  projectiles    {};
+    std::vector<CollisionEvent>   collisionEvents {};
 };
 
 } // namespace spaceship::server
