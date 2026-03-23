@@ -1,18 +1,21 @@
 #include "server/collision/collision_system.hpp"
 
-#include <algorithm>
-
 namespace spaceship::server
 {
 
+void CollisionSystem::decrementTtl(
+    std::span<ProjectileState> projectiles,
+    const SimulationConfig& config) const
+{
+    for (auto& projectile : projectiles)
+        projectile.params.ttlSeconds -= config.fixedDeltaSeconds;
+}
+
 void CollisionSystem::update(std::vector<ProjectileState>& projectiles) const
 {
-    projectiles.erase(
-        std::remove_if(
-            projectiles.begin(),
-            projectiles.end(),
-            [](const ProjectileState& projectile) { return projectile.params.ttlSeconds <= 0.0; }),
-        projectiles.end());
+    std::erase_if(
+        projectiles,
+        [](const ProjectileState& projectile) { return projectile.params.ttlSeconds <= 0.0; });
 }
 
 } // namespace spaceship::server

@@ -6,6 +6,7 @@
 #include "server/simulation/gravity/reference_body_selector.hpp"
 #include "shared/sim_types.hpp"
 
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -55,6 +56,15 @@ struct ProjectileState
     shared::Vec3 acceleration {};          // gravity only — carried forward each tick
     shared::Vec3 thrustAcceleration {};    // always zero for projectiles
     shared::Vec3 previousAcceleration {};
+};
+
+// Request type passed by callers to SimulationServer::spawnShip.
+// Lives here so callers only need simulation_world.hpp, not spawning_system.hpp.
+struct ShipSpawnRequest
+{
+    shared::Transform transform {};
+    shared::Velocity velocity {};
+    std::optional<shared::Vec3> initialAcceleration {};
 };
 
 struct PendingEvent

@@ -65,3 +65,24 @@ TEST(CollisionSystemTest, GivenNoProjectiles_WhenUpdated_ThenNoChange)
     EXPECT_NO_FATAL_FAILURE(system.update(projectiles));
     EXPECT_TRUE(projectiles.empty());
 }
+
+TEST(CollisionSystemTest, GivenProjectileWithTtl_WhenTtlDecremented_ThenReducedByFixedDelta)
+{
+    CollisionSystem system;
+    SimulationConfig config {};
+    std::vector<ProjectileState> projectiles;
+    projectiles.push_back(ProjectileState {10'000, {}, {}, {}, {}, {10.0, 100}});
+
+    system.decrementTtl(projectiles, config);
+
+    EXPECT_NEAR(projectiles[0].params.ttlSeconds, 10.0 - config.fixedDeltaSeconds, 1e-15);
+}
+
+TEST(CollisionSystemTest, GivenNoProjectiles_WhenTtlDecremented_ThenNoChange)
+{
+    CollisionSystem system;
+    SimulationConfig config {};
+    std::vector<ProjectileState> projectiles;
+
+    EXPECT_NO_FATAL_FAILURE(system.decrementTtl(projectiles, config));
+}

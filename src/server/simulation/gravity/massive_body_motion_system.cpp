@@ -4,13 +4,14 @@
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <span>
 
 namespace spaceship::server
 {
 
 
 void MassiveBodyMotionSystem::update(
-    std::vector<MassiveBodyState>& massiveBodies,
+    std::span<MassiveBodyState> massiveBodies,
     double elapsedSeconds) const
 {
     for (auto& body : massiveBodies)
@@ -31,10 +32,10 @@ void MassiveBodyMotionSystem::update(
             massiveBodies.end(),
             [&body](const MassiveBodyState& b)
             { return b.definition.netId == body.orbital.centerNetId; });
-        assert(centerIt < std::find_if(
-            massiveBodies.begin(), massiveBodies.end(),
-            [&body](const MassiveBodyState& b) { return &b == &body; }) &&
-            "center body must precede orbiting body in massiveBodies vector");
+        // Invariant: center body index must be less than this body's index.
+        // Computed via pointer arithmetic — avoids a second O(n) scan.
+        assert(centerIt - massiveBodies.begin() < &body - massiveBodies.data() &&
+               "center body must precede orbiting body in massiveBodies vector");
 
         const shared::Vec3 center =
             (centerIt != massiveBodies.end()) ? centerIt->transform.position : shared::Vec3 {};

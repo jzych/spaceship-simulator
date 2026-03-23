@@ -5,7 +5,7 @@
 
 #include "server/simulation/simulation_world.hpp"
 
-#include <vector>
+#include <span>
 
 namespace spaceship::server
 {
@@ -13,7 +13,7 @@ namespace spaceship::server
 class MassiveBodyMotionSystem
 {
   public:
-    void update(std::vector<MassiveBodyState>& massiveBodies, double elapsedSeconds) const;
+    void update(std::span<MassiveBodyState> massiveBodies, double elapsedSeconds) const;
 };
 
 } // namespace spaceship::server

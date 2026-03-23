@@ -144,7 +144,8 @@ inline shared::Vec3 forwardDirection(const shared::Quaternion& orientation)
     const shared::Vec3 worldForward = rotateVector(orientation, kLocalForward);
     const double worldForwardLength = length(worldForward);
 
-    if (worldForwardLength == 0.0)
+    constexpr double kEpsilon = 1e-15;
+    if (worldForwardLength < kEpsilon)
     {
         return kLocalForward;
     }

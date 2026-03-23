@@ -1,20 +1,15 @@
 #pragma once
 
 // Owns the authoritative world and runs the ordered server simulation tick.
+// System headers are hidden behind a pImpl — changes to any system header
+// do not force recompilation of translation units that include this header.
 
-#include "server/collision/collision_system.hpp"
-#include "server/simulation/gravity/gravity_system.hpp"
-#include "server/simulation/gravity/orbit_cache_system.hpp"
-#include "server/simulation/integration_system.hpp"
-#include "server/simulation/gravity/massive_body_motion_system.hpp"
-#include "server/control/ship_control_system.hpp"
 #include "server/simulation/simulation_config.hpp"
 #include "server/simulation/simulation_world.hpp"
-#include "server/snapshot/snapshot_system.hpp"
-#include "server/spawning/spawning_system.hpp"
 
-#include <functional>
+#include <memory>
 #include <optional>
+#include <functional>
 #include <string>
 
 namespace spaceship::server
@@ -26,6 +21,11 @@ class SimulationServer
     explicit SimulationServer(const SimulationConfig& config = {});
     SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
 
+    // Required for pImpl with unique_ptr — defined in .cpp where Impl is complete.
+    ~SimulationServer();
+    SimulationServer(SimulationServer&&) noexcept;
+    SimulationServer& operator=(SimulationServer&&) noexcept;
+
     shared::NetId spawnShip(const ShipSpawnRequest& request);
     void updateShipControl(shared::NetId shipNetId, const shared::ShipControl& control);
     void tick();
@@ -35,22 +35,8 @@ class SimulationServer
     [[nodiscard]] const std::string& lastSnapshotSummary() const;
 
   private:
-    std::optional<std::reference_wrapper<ShipState>> findShip(shared::NetId shipNetId);
-
-    SimulationConfig config_ {};
-    SimulationWorld world_ {};
-    shared::Tick tickCount_ {};
-    double elapsedSeconds_ {};
-    std::string lastSnapshotSummary_ {};
-
-    MassiveBodyMotionSystem massiveBodyMotionSystem_ {};
-    SpawningSystem spawningSystem_ {};
-    ShipControlSystem shipControlSystem_ {};
-    GravitySystem gravitySystem_ {};
-    IntegrationSystem integrationSystem_ {};
-    OrbitCacheSystem orbitCacheSystem_ {};
-    CollisionSystem collisionSystem_ {};
-    SnapshotSystem snapshotSystem_ {};
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 } // namespace spaceship::server

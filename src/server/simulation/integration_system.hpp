@@ -27,10 +27,6 @@ class IntegrationSystem
         std::span<ProjectileState> projectiles,
         const SimulationConfig& config) const;
 
-    // Decrements TTL on all projectiles by one fixed time step.
-    void decrementTtl(
-        std::span<ProjectileState> projectiles,
-        const SimulationConfig& config) const;
 };
 
 } // namespace spaceship::server

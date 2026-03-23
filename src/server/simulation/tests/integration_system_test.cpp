@@ -93,14 +93,6 @@ TEST_F(IntegrationSystemTest, GivenDifferentOldAndNewAcceleration_WhenVelocities
     EXPECT_NEAR(ships[0].velocity.linear.x, 15.0 * dt, 1e-12);
 }
 
-TEST_F(IntegrationSystemTest, GivenProjectileWithTtl_WhenTtlDecremented_ThenReducedByFixedDelta)
-{
-    projectiles.push_back(ProjectileState {10'000, {}, {}, {}, {}, {10.0, 100}});
-
-    system.decrementTtl(projectiles, config);
-
-    EXPECT_NEAR(projectiles[0].params.ttlSeconds, 10.0 - config.fixedDeltaSeconds, 1e-15);
-}
 
 TEST_F(IntegrationSystemTest, GivenProjectileWithVelocity_WhenPositionsIntegrated_ThenPositionAdvances)
 {
@@ -117,5 +109,4 @@ TEST_F(IntegrationSystemTest, GivenNoEntities_WhenIntegrated_ThenNoChange)
 {
     EXPECT_NO_FATAL_FAILURE(system.integratePositions(ships, projectiles, config));
     EXPECT_NO_FATAL_FAILURE(system.integrateVelocities(ships, projectiles, config));
-    EXPECT_NO_FATAL_FAILURE(system.decrementTtl(projectiles, config));
 }
