@@ -27,6 +27,17 @@ class IntegrationSystem
         std::span<ProjectileState> projectiles,
         const SimulationConfig& config) const;
 
+    // Explicit-dt overloads used by the adaptive timestep controller.
+    void integratePositions(
+        std::span<ShipState> ships,
+        std::span<ProjectileState> projectiles,
+        double dt) const;
+
+    void integrateVelocities(
+        std::span<ShipState> ships,
+        std::span<ProjectileState> projectiles,
+        double dt) const;
+
 };
 
 } // namespace spaceship::server

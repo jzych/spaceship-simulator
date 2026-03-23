@@ -35,6 +35,11 @@ add_library(spaceship-server
     src/server/simulation/simulation_server.cpp
     src/server/simulation/simulation_server.hpp
     src/server/simulation/simulation_world.hpp
+    src/server/simulation/timestep/timescale_heuristics.cpp
+    src/server/simulation/timestep/timescale_heuristics.hpp
+    src/server/simulation/timestep/timestep_controller.cpp
+    src/server/simulation/timestep/timestep_controller.hpp
+    src/server/simulation/timestep/timestep_types.hpp
     src/server/snapshot/snapshot_system.cpp
     src/server/snapshot/snapshot_system.hpp
     src/server/spawning/spawning_system.cpp
@@ -79,6 +84,10 @@ if(BUILD_TESTING)
         src/server/simulation/tests/ship_behavior_test.cpp
         src/server/simulation/tests/simulation_math_test.cpp
         src/server/simulation/tests/simulation_server_test.cpp
+        src/server/simulation/timestep/tests/timescale_heuristics_test.cpp
+        src/server/simulation/timestep/tests/timestep_ladder_test.cpp
+        src/server/simulation/timestep/tests/timestep_controller_test.cpp
+        src/server/simulation/timestep/tests/energy_regression_test.cpp
         src/server/snapshot/tests/snapshot_system_test.cpp
         src/server/spawning/tests/spawning_system_test.cpp
     )

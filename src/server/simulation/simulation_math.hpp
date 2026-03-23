@@ -10,37 +10,37 @@
 namespace spaceship::server
 {
 
-inline shared::Vec3 add(const shared::Vec3& lhs, const shared::Vec3& rhs)
+inline shared::Vec3 add(const shared::Vec3& lhs, const shared::Vec3& rhs) noexcept
 {
     return {lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z};
 }
 
-inline shared::Vec3 scale(const shared::Vec3& value, double factor)
+inline shared::Vec3 scale(const shared::Vec3& value, double factor) noexcept
 {
     return {value.x * factor, value.y * factor, value.z * factor};
 }
 
-inline shared::Vec3 subtract(const shared::Vec3& lhs, const shared::Vec3& rhs)
+inline shared::Vec3 subtract(const shared::Vec3& lhs, const shared::Vec3& rhs) noexcept
 {
     return {lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z};
 }
 
-inline double dot(const shared::Vec3& lhs, const shared::Vec3& rhs)
+inline double dot(const shared::Vec3& lhs, const shared::Vec3& rhs) noexcept
 {
     return lhs.x * rhs.x + lhs.y * rhs.y + lhs.z * rhs.z;
 }
 
-inline double lengthSquared(const shared::Vec3& value)
+inline double lengthSquared(const shared::Vec3& value) noexcept
 {
     return dot(value, value);
 }
 
-inline double length(const shared::Vec3& value)
+inline double length(const shared::Vec3& value) noexcept
 {
     return std::sqrt(lengthSquared(value));
 }
 
-inline shared::Vec3 cross(const shared::Vec3& lhs, const shared::Vec3& rhs)
+inline shared::Vec3 cross(const shared::Vec3& lhs, const shared::Vec3& rhs) noexcept
 {
     return {
         lhs.y * rhs.z - lhs.z * rhs.y,
@@ -49,7 +49,7 @@ inline shared::Vec3 cross(const shared::Vec3& lhs, const shared::Vec3& rhs)
     };
 }
 
-inline shared::Vec3 normalize(const shared::Vec3& value)
+inline shared::Vec3 normalize(const shared::Vec3& value) noexcept
 {
     const double len = length(value);
     constexpr double kEpsilon = 1e-15;
@@ -58,13 +58,13 @@ inline shared::Vec3 normalize(const shared::Vec3& value)
     return scale(value, 1.0 / len);
 }
 
-inline shared::Vec3 negate(const shared::Vec3& value)
+inline shared::Vec3 negate(const shared::Vec3& value) noexcept
 {
     return {-value.x, -value.y, -value.z};
 }
 
 // Requires planeNormal to be a unit vector.
-inline shared::Vec3 projectOntoPlane(const shared::Vec3& v, const shared::Vec3& planeNormal)
+inline shared::Vec3 projectOntoPlane(const shared::Vec3& v, const shared::Vec3& planeNormal) noexcept
 {
     return subtract(v, scale(planeNormal, dot(v, planeNormal)));
 }
@@ -77,7 +77,7 @@ struct GeographicCoordinates
 };
 
 // Compute body spin angle at elapsed time from sidereal period and initial phase.
-inline double bodySpinAngle(double siderealPeriodSeconds, double initialPhaseRadians, double elapsedSeconds)
+inline double bodySpinAngle(double siderealPeriodSeconds, double initialPhaseRadians, double elapsedSeconds) noexcept
 {
     if (siderealPeriodSeconds <= 0.0)
         return initialPhaseRadians;
@@ -91,7 +91,7 @@ inline double bodySpinAngle(double siderealPeriodSeconds, double initialPhaseRad
 inline GeographicCoordinates toBodyFixedGeographic(
     const shared::Vec3& relativePosition,
     double bodyRadius,
-    double spinAngle)
+    double spinAngle) noexcept
 {
     const double r = length(relativePosition);
     const double cosTheta = std::cos(spinAngle);
@@ -115,12 +115,12 @@ inline GeographicCoordinates toBodyFixedGeographic(
     return geo;
 }
 
-inline shared::Quaternion conjugate(const shared::Quaternion& quaternion)
+inline shared::Quaternion conjugate(const shared::Quaternion& quaternion) noexcept
 {
     return {quaternion.w, -quaternion.x, -quaternion.y, -quaternion.z};
 }
 
-inline shared::Quaternion multiply(const shared::Quaternion& lhs, const shared::Quaternion& rhs)
+inline shared::Quaternion multiply(const shared::Quaternion& lhs, const shared::Quaternion& rhs) noexcept
 {
     return {
         lhs.w * rhs.w - lhs.x * rhs.x - lhs.y * rhs.y - lhs.z * rhs.z,
@@ -130,14 +130,14 @@ inline shared::Quaternion multiply(const shared::Quaternion& lhs, const shared::
     };
 }
 
-inline shared::Vec3 rotateVector(const shared::Quaternion& rotation, const shared::Vec3& vector)
+inline shared::Vec3 rotateVector(const shared::Quaternion& rotation, const shared::Vec3& vector) noexcept
 {
     const shared::Quaternion pureVector {0.0, vector.x, vector.y, vector.z};
     const shared::Quaternion rotated = multiply(multiply(rotation, pureVector), conjugate(rotation));
     return {rotated.x, rotated.y, rotated.z};
 }
 
-inline shared::Vec3 forwardDirection(const shared::Quaternion& orientation)
+inline shared::Vec3 forwardDirection(const shared::Quaternion& orientation) noexcept
 {
     constexpr shared::Vec3 kLocalForward {1.0, 0.0, 0.0};
 
