@@ -4,7 +4,6 @@
 #include "server/simulation/simulation_math.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <ranges>
 #include <unordered_map>
 #include <unordered_set>
@@ -119,7 +118,7 @@ void resolveSmallVsMassive(
     const SmallSnapshot&                small,
     const MassiveBodyState&             body,
     std::unordered_set<shared::NetId>&  destroyed,
-    std::vector<CollisionEvent>&        outEvents) noexcept
+    std::vector<CollisionEvent>&        outEvents)
 {
     // For small-vs-massive, reduced mass mu_r ≈ m_small (since M_body >> m_small).
     // E_rel = 0.5 * m_small * |v_small - v_body|^2
@@ -152,7 +151,7 @@ void resolveProjectileVsProjectile(
     const SimulationConfig&                              config,
     std::unordered_set<shared::NetId>&                   destroyed,
     std::unordered_map<shared::NetId, shared::Vec3>&     vcmWriteBack,
-    std::vector<CollisionEvent>&                         outEvents) noexcept
+    std::vector<CollisionEvent>&                         outEvents)
 {
     CollisionEvent ev;
     ev.toi        = hit.toi;
@@ -188,11 +187,11 @@ void resolveShipVsProjectile(
     const SimulationConfig&                              config,
     std::unordered_set<shared::NetId>&                   destroyed,
     std::unordered_map<shared::NetId, shared::Vec3>&     vcmWriteBack,
-    std::vector<CollisionEvent>&                         outEvents) noexcept
+    std::vector<CollisionEvent>&                         outEvents)
 {
     const SmallSnapshot* ship = (sA.kind == shared::EntityKind::Ship) ? &sA : &sB;
     const SmallSnapshot* proj = (sA.kind == shared::EntityKind::Ship) ? &sB : &sA;
-    const bool projIsB = (&sB == proj);
+    const bool projIsB = (sB.kind == shared::EntityKind::Projectile);
 
     CollisionEvent ev;
     ev.toi        = hit.toi;
@@ -229,7 +228,7 @@ void resolveShipVsShip(
     const SimulationConfig&                              config,
     std::unordered_set<shared::NetId>&                   destroyed,
     std::unordered_map<shared::NetId, shared::Vec3>&     vcmWriteBack,
-    std::vector<CollisionEvent>&                         outEvents) noexcept
+    std::vector<CollisionEvent>&                         outEvents)
 {
     CollisionEvent ev;
     ev.toi        = hit.toi;
@@ -421,6 +420,8 @@ void CollisionSystem::detectAndResolve(
     // ---- 6. Resolve hits ----------------------------------------------------
     std::unordered_set<shared::NetId>              destroyed;
     std::unordered_map<shared::NetId, shared::Vec3> vcmWriteBack;
+    destroyed.reserve(nSmall);
+    vcmWriteBack.reserve(nSmall);
 
     resolveHits(hits, snaps, massiveBodies, config, destroyed, vcmWriteBack, outEvents);
 
