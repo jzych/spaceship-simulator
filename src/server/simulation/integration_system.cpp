@@ -27,24 +27,30 @@ shared::Vec3 fullAcceleration(const Entity& entity)
     return add(entity.acceleration, entity.thrustAcceleration);
 }
 
+// Velocity Verlet position update (first half of the leapfrog step):
+//   x_{n+1} = x_n + v_n * dt + 0.5 * a_n * dt^2
+// Saves a_n into previousAcceleration for the velocity half-step.
 template <IntegrableEntity Entity>
 void integratePosition(Entity& entity, double dt)
 {
-    const shared::Vec3 a = fullAcceleration(entity);
-    entity.previousAcceleration = a;
-    entity.transform.position = add(
-        add(entity.transform.position, scale(entity.velocity.linear, dt)),
-        scale(a, 0.5 * dt * dt));
+    const shared::Vec3 currentAccel = fullAcceleration(entity);
+    entity.previousAcceleration = currentAccel;
+
+    const shared::Vec3 velocityDisplacement = scale(entity.velocity.linear, dt);
+    const shared::Vec3 accelDisplacement    = scale(currentAccel, 0.5 * dt * dt);
+    entity.transform.position = add(add(entity.transform.position, velocityDisplacement), accelDisplacement);
 }
 
+// Velocity Verlet velocity update (second half of the leapfrog step):
+//   v_{n+1} = v_n + 0.5 * (a_n + a_{n+1}) * dt
+// previousAcceleration holds a_n (saved during integratePosition).
+// acceleration now holds gravity(x_{n+1}); thrustAcceleration is unchanged.
 template <IntegrableEntity Entity>
 void integrateVelocity(Entity& entity, double dt)
 {
-    // previousAcceleration holds a_n (saved during integratePositions).
-    // acceleration now holds gravity(x_{n+1}); thrustAcceleration is unchanged.
-    const shared::Vec3 avgAccel = scale(
+    const shared::Vec3 averageAcceleration = scale(
         add(entity.previousAcceleration, fullAcceleration(entity)), 0.5);
-    entity.velocity.linear = add(entity.velocity.linear, scale(avgAccel, dt));
+    entity.velocity.linear = add(entity.velocity.linear, scale(averageAcceleration, dt));
 }
 
 } // namespace
