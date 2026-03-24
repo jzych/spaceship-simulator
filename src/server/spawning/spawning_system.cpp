@@ -85,7 +85,7 @@ void SpawningSystem::update(
     {
         if (ship.control.fire)
         {
-            spawnProjectile(projectiles, ship, config, massiveBodies);
+            (void)spawnProjectile(projectiles, ship, config, massiveBodies);
             ship.control.fire = false;
         }
     }

@@ -17,13 +17,13 @@ namespace spaceship::server
 
 void CollisionSystem::decrementTtl(
     std::span<ProjectileState> projectiles,
-    double dt) const
+    double dt) const noexcept
 {
     for (auto& projectile : projectiles)
         projectile.params.ttlSeconds -= dt;
 }
 
-void CollisionSystem::update(std::vector<ProjectileState>& projectiles) const
+void CollisionSystem::update(std::vector<ProjectileState>& projectiles) const noexcept
 {
     std::erase_if(
         projectiles,

@@ -39,7 +39,7 @@ TEST_F(SpawningSystemTest, GivenSpawnRequestWithTransform_WhenShipSpawned_ThenPo
     request.transform.position = {1.0, 2.0, 3.0};
     request.velocity = {{4.0, 5.0, 6.0}};
 
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
 
     ASSERT_EQ(ships.size(), 1U);
     EXPECT_DOUBLE_EQ(ships[0].transform.position.x, 1.0);
@@ -51,7 +51,7 @@ TEST_F(SpawningSystemTest, GivenSpawnRequestWithTransform_WhenShipSpawned_ThenPo
 TEST_F(SpawningSystemTest, GivenDefaultConfig_WhenShipSpawned_ThenMassPropertiesFromConfig)
 {
     ShipSpawnRequest request {};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
 
     EXPECT_DOUBLE_EQ(ships[0].massProperties.massKg, config.shipDefaultMassKg);
     EXPECT_NEAR(ships[0].massProperties.inverseMass, 1.0 / config.shipDefaultMassKg, 1e-15);
@@ -64,7 +64,7 @@ TEST_F(SpawningSystemTest, GivenBodyNearby_WhenShipSpawned_ThenAccelerationSeede
 
     ShipSpawnRequest request {};
     request.transform.position = {6.771e6, 0.0, 0.0};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
 
     // Acceleration should be seeded from gravity
     EXPECT_LT(ships[0].acceleration.x, 0.0);
@@ -77,7 +77,7 @@ TEST_F(SpawningSystemTest, GivenCustomInitialAcceleration_WhenShipSpawned_ThenGr
     ShipSpawnRequest request {};
     request.transform.position = {6.771e6, 0.0, 0.0};
     request.initialAcceleration = spaceship::shared::Vec3 {99.0, 88.0, 77.0};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
 
     EXPECT_DOUBLE_EQ(ships[0].acceleration.x, 99.0);
     EXPECT_DOUBLE_EQ(ships[0].acceleration.y, 88.0);
@@ -88,7 +88,7 @@ TEST_F(SpawningSystemTest, GivenShipWithFireFlagSet_WhenSystemUpdated_ThenProjec
 {
     ShipSpawnRequest request {};
     request.transform.position = {100.0, 0.0, 0.0};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
 
     ships[0].control.fire = true;
     ships[0].control.desiredOrientation = {1.0, 0.0, 0.0, 0.0};
@@ -103,7 +103,7 @@ TEST_F(SpawningSystemTest, GivenShipWithFireFlagSet_WhenSystemUpdated_ThenProjec
 TEST_F(SpawningSystemTest, GivenShipWithoutFireFlag_WhenSystemUpdated_ThenNoProjectileSpawned)
 {
     ShipSpawnRequest request {};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
     ships[0].control.fire = false;
 
     system.update(ships, projectiles, massiveBodies, config);
@@ -115,10 +115,10 @@ TEST_F(SpawningSystemTest, GivenShipWithVelocity_WhenProjectileSpawned_ThenVeloc
 {
     ShipSpawnRequest request {};
     request.velocity = {{10.0, 0.0, 0.0}};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
     ships[0].transform.orientation = {1.0, 0.0, 0.0, 0.0}; // forward = +X
 
-    system.spawnProjectile(projectiles, ships[0], config, massiveBodies);
+    (void)system.spawnProjectile(projectiles, ships[0], config, massiveBodies);
 
     ASSERT_EQ(projectiles.size(), 1U);
     EXPECT_NEAR(projectiles[0].velocity.linear.x,
@@ -128,9 +128,9 @@ TEST_F(SpawningSystemTest, GivenShipWithVelocity_WhenProjectileSpawned_ThenVeloc
 TEST_F(SpawningSystemTest, GivenDefaultConfig_WhenProjectileSpawned_ThenTtlFromConfig)
 {
     ShipSpawnRequest request {};
-    system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnShip(ships, request, config, massiveBodies);
 
-    system.spawnProjectile(projectiles, ships[0], config, massiveBodies);
+    (void)system.spawnProjectile(projectiles, ships[0], config, massiveBodies);
 
     EXPECT_DOUBLE_EQ(projectiles[0].params.ttlSeconds, config.projectileDefaultTtlSeconds);
 }

@@ -16,10 +16,10 @@ class CollisionSystem
 {
   public:
     // Decrements TTL on all projectiles by dt seconds.
-    void decrementTtl(std::span<ProjectileState> projectiles, double dt) const;
+    void decrementTtl(std::span<ProjectileState> projectiles, double dt) const noexcept;
 
     // Removes projectiles whose TTL has expired.
-    void update(std::vector<ProjectileState>& projectiles) const;
+    void update(std::vector<ProjectileState>& projectiles) const noexcept;
 
     // Run one full CCD collision pass over [0, dt].
     //   - Builds swept-AABB broad phase for all small objects.

@@ -21,7 +21,7 @@ class SimulationServer
 {
   public:
     explicit SimulationServer(const SimulationConfig& config = {});
-    SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
+    explicit SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
 
     // Required for pImpl with unique_ptr — defined in .cpp where Impl is complete.
     ~SimulationServer();
