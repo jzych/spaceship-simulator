@@ -12,8 +12,12 @@ namespace
 // Axis-aligned bounding box in 3D.
 struct Aabb
 {
-    double minX, minY, minZ;
-    double maxX, maxY, maxZ;
+    double minX {};
+    double minY {};
+    double minZ {};
+    double maxX {};
+    double maxY {};
+    double maxZ {};
 };
 
 // Build a swept AABB that encloses the sphere at both its start and end
