@@ -37,25 +37,33 @@ void MassiveBodyMotionSystem::update(
         assert(centerIt - massiveBodies.begin() < &body - massiveBodies.data() &&
                "center body must precede orbiting body in massiveBodies vector");
 
-        const shared::Vec3 center =
+        const shared::Vec3 centerPosition =
             (centerIt != massiveBodies.end()) ? centerIt->transform.position : shared::Vec3 {};
 
-        const double phase =
+        // Orbital phase angle at current time:
+        //   phase = omega * t + phase_0
+        const double orbitalPhase =
             body.orbital.angularVelocityRadPerSec * elapsedSeconds +
             body.orbital.initialPhaseRadians;
 
-        const double r = body.orbital.orbitRadiusMeters;
-        const double omega = body.orbital.angularVelocityRadPerSec;
+        const double orbitRadius = body.orbital.orbitRadiusMeters;
+        const double angularVelocity = body.orbital.angularVelocityRadPerSec;
 
+        // Circular orbit position (2D in XY plane):
+        //   x = center_x + R * cos(phase)
+        //   y = center_y + R * sin(phase)
         body.transform.position = {
-            center.x + r * std::cos(phase),
-            center.y + r * std::sin(phase),
-            center.z,
+            centerPosition.x + orbitRadius * std::cos(orbitalPhase),
+            centerPosition.y + orbitRadius * std::sin(orbitalPhase),
+            centerPosition.z,
         };
 
+        // Circular orbit velocity (derivative of position):
+        //   vx = -R * omega * sin(phase)
+        //   vy =  R * omega * cos(phase)
         body.velocity.linear = {
-            -r * omega * std::sin(phase),
-             r * omega * std::cos(phase),
+            -orbitRadius * angularVelocity * std::sin(orbitalPhase),
+             orbitRadius * angularVelocity * std::cos(orbitalPhase),
             0.0,
         };
     }

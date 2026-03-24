@@ -9,29 +9,43 @@
 namespace spaceship::server
 {
 
+// Orbital timescale: inversely proportional to estimated angular rate.
+//   dt_orbit = alpha_orbit / (|v| / |r|)
+// Captures how quickly the entity sweeps through its orbit — tighter orbits
+// (higher angular rate) need smaller timesteps.
 double computeOrbitalTimescale(
     const shared::Vec3& position,
     const shared::Vec3& velocity,
     const shared::Vec3& nearestBodyPosition,
     const TimestepLadderConfig& cfg) noexcept
 {
-    const shared::Vec3 rRel = subtract(position, nearestBodyPosition);
-    const double rLen = std::max(length(rRel), cfg.r_eps);
-    const double vLen = std::max(length(velocity), cfg.v_eps);
-    const double nEst = vLen / rLen;   // approximate angular rate (rad/s); vLen >= v_eps > 0
-    return cfg.alpha_orbit / nEst;
+    const shared::Vec3 relPosition = subtract(position, nearestBodyPosition);
+    const double distanceFromBody  = std::max(length(relPosition), cfg.r_eps);
+    const double speed             = std::max(length(velocity), cfg.v_eps);
+    const double angularRateEstimate = speed / distanceFromBody;  // approximate rad/s
+    return cfg.alpha_orbit / angularRateEstimate;
 }
 
+// Acceleration timescale: how long before acceleration changes position significantly.
+//   dt_acc = alpha_acc * sqrt(|r| / |a|)
+// Derived from dimensional analysis: position error ~ 0.5 * a * dt^2, so
+// dt ~ sqrt(r / a) gives a step where the acceleration-induced displacement
+// is a controlled fraction of the orbital radius.
 double computeAccelerationTimescale(
     const shared::Vec3& relativePosition,
     const shared::Vec3& acceleration,
     const TimestepLadderConfig& cfg) noexcept
 {
-    const double rLen = std::max(length(relativePosition), cfg.r_eps);
-    const double aLen = std::max(length(acceleration), cfg.a_eps);
-    return cfg.alpha_acc * std::sqrt(rLen / aLen);
+    const double distanceFromBody  = std::max(length(relativePosition), cfg.r_eps);
+    const double accelerationMag   = std::max(length(acceleration), cfg.a_eps);
+    return cfg.alpha_acc * std::sqrt(distanceFromBody / accelerationMag);
 }
 
+// Jerk timescale: how quickly acceleration is changing (rate of change = jerk).
+//   jerk = (a_current - a_previous) / dt_prev
+//   dt_jerk = alpha_jerk * |a| / |jerk|
+// When jerk is high (acceleration changing rapidly), smaller steps are needed
+// to track the evolving force field accurately.
 double computeJerkTimescale(
     const shared::Vec3& acceleration,
     const shared::Vec3& previousAcceleration,
@@ -39,31 +53,35 @@ double computeJerkTimescale(
     const TimestepLadderConfig& cfg) noexcept
 {
     if (dtPrev <= 0.0)
-        return cfg.dt_max;  // no history — do not refine
-    const shared::Vec3 jVec = scale(subtract(acceleration, previousAcceleration), 1.0 / dtPrev);
-    const double jLen = std::max(length(jVec), cfg.j_eps);
-    const double aLen = std::max(length(acceleration), cfg.a_eps);
-    return cfg.alpha_jerk * aLen / jLen;
+        return cfg.dt_max;  // No history — do not refine
+
+    const shared::Vec3 jerkVector = scale(subtract(acceleration, previousAcceleration), 1.0 / dtPrev);
+    const double jerkMag         = std::max(length(jerkVector), cfg.j_eps);
+    const double accelerationMag = std::max(length(acceleration), cfg.a_eps);
+    return cfg.alpha_jerk * accelerationMag / jerkMag;
 }
 
+// Close-approach timescale: time for the entity to traverse its current distance
+// to the nearest body at relative speed.
+//   dt_close = alpha_close * distance / relativeSpeed
+// Prevents tunneling through or past a massive body between timesteps.
 double computeCloseApproachTimescale(
     const shared::Vec3&               position,
     const shared::Vec3&               velocity,
     std::span<const MassiveBodyState> bodies,
     const TimestepLadderConfig&       cfg) noexcept
 {
-    // Start unclamped — clamping to [dt_min, dt_max] is done by computeTargetTimestep.
-    double minDt = std::numeric_limits<double>::max();
+    double minimumTimescale = std::numeric_limits<double>::max();
     for (const auto& body : bodies)
     {
-        const shared::Vec3 rRel = subtract(position, body.transform.position);
-        const shared::Vec3 vRel = subtract(velocity, body.velocity.linear);
-        const double dist      = std::max(length(rRel), cfg.r_eps);
-        const double relSpeed  = std::max(length(vRel), cfg.v_eps);
-        const double dt        = cfg.alpha_close * dist / relSpeed;
-        minDt = std::min(minDt, dt);
+        const shared::Vec3 relPosition    = subtract(position, body.transform.position);
+        const shared::Vec3 relVelocity    = subtract(velocity, body.velocity.linear);
+        const double distance             = std::max(length(relPosition), cfg.r_eps);
+        const double relativeSpeed        = std::max(length(relVelocity), cfg.v_eps);
+        const double closeApproachTimestep = cfg.alpha_close * distance / relativeSpeed;
+        minimumTimescale = std::min(minimumTimescale, closeApproachTimestep);
     }
-    return minDt;
+    return minimumTimescale;
 }
 
 double computeTargetTimestep(
@@ -75,29 +93,30 @@ double computeTargetTimestep(
     std::span<const MassiveBodyState> bodies,
     const TimestepLadderConfig&       cfg) noexcept
 {
-    // Find the nearest body for orbital and acceleration heuristics.
+    // Find the nearest massive body for orbital and acceleration heuristics.
     const MassiveBodyState* nearest = nullptr;
-    double minDist2 = std::numeric_limits<double>::max();
+    double minDistanceSquared = std::numeric_limits<double>::max();
     for (const auto& body : bodies)
     {
-        const double d2 = lengthSquared(subtract(position, body.transform.position));
-        if (d2 < minDist2)
+        const double distSq = lengthSquared(subtract(position, body.transform.position));
+        if (distSq < minDistanceSquared)
         {
-            minDist2 = d2;
-            nearest  = &body;
+            minDistanceSquared = distSq;
+            nearest = &body;
         }
     }
 
-    const shared::Vec3 rRelNearest = nearest
+    const shared::Vec3 relPositionNearest = nearest
         ? subtract(position, nearest->transform.position)
         : shared::Vec3{};
 
+    // Compute all four heuristic timescales and take the minimum.
     const double dtOrbit = computeOrbitalTimescale(
         position, velocity,
         nearest ? nearest->transform.position : shared::Vec3{},
         cfg);
 
-    const double dtAcc = computeAccelerationTimescale(rRelNearest, acceleration, cfg);
+    const double dtAccel = computeAccelerationTimescale(relPositionNearest, acceleration, cfg);
 
     const double dtJerk = computeJerkTimescale(acceleration, previousAcceleration, dtPrev, cfg);
 
@@ -105,8 +124,8 @@ double computeTargetTimestep(
         ? std::numeric_limits<double>::max()
         : computeCloseApproachTimescale(position, velocity, bodies, cfg);
 
-    const double raw = std::min({dtOrbit, dtAcc, dtJerk, dtClose, cfg.dt_max});
-    return std::clamp(raw, cfg.dt_min(), cfg.dt_max);
+    const double rawTimestep = std::min({dtOrbit, dtAccel, dtJerk, dtClose, cfg.dt_max});
+    return std::clamp(rawTimestep, cfg.dt_min(), cfg.dt_max);
 }
 
 } // namespace spaceship::server

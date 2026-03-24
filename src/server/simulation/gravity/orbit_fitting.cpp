@@ -30,95 +30,112 @@ OrbitCache fitOrbit(
     cache.relativePosition = relativePosition;
     cache.relativeVelocity = relativeVelocity;
 
-    const double r = length(relativePosition);
-    cache.altitudeMeters = r - bodyRadius;
+    const double distanceFromCenter = length(relativePosition);
+    cache.altitudeMeters = distanceFromCenter - bodyRadius;
 
-    // Specific angular momentum: h = r × v
-    const shared::Vec3 h = cross(relativePosition, relativeVelocity);
-    const double hMag = length(h);
+    // Specific angular momentum vector: h = r x v
+    // Its magnitude determines whether the orbit is degenerate (radial/stationary).
+    const shared::Vec3 angularMomentum = cross(relativePosition, relativeVelocity);
+    const double angularMomentumMag = length(angularMomentum);
 
-    // Degenerate: zero angular momentum (radial trajectory or zero velocity)
-    if (hMag < kAngularMomentumEpsilon)
-        return cache;
+    if (angularMomentumMag < kAngularMomentumEpsilon)
+        return cache;  // Degenerate: radial trajectory or zero velocity
 
-    const shared::Vec3 hHat = scale(h, 1.0 / hMag);
+    const shared::Vec3 angularMomentumDir = scale(angularMomentum, 1.0 / angularMomentumMag);
 
-    // Specific orbital energy: ε = 0.5 * |v|² - μ / |r|
-    const double vSq = lengthSquared(relativeVelocity);
-    const double epsilon = 0.5 * vSq - mu / r;
+    // Specific orbital energy (vis-viva per unit mass):
+    //   epsilon = 0.5 * |v|^2 - mu / |r|
+    // Negative energy → bound (elliptical) orbit.
+    // Zero or positive → parabolic/hyperbolic escape trajectory.
+    const double speedSquared = lengthSquared(relativeVelocity);
+    const double specificEnergy = 0.5 * speedSquared - mu / distanceFromCenter;
 
-    // Must be bound (negative energy) for an ellipse
-    if (epsilon >= 0.0)
-        return cache;
+    if (specificEnergy >= 0.0)
+        return cache;  // Unbound orbit — not elliptical
 
-    // Eccentricity vector: e_vec = (v × h) / μ - r̂
-    const shared::Vec3 eVec = subtract(
-        scale(cross(relativeVelocity, h), 1.0 / mu),
-        scale(relativePosition, 1.0 / r));
-    const double e = length(eVec);
+    // Eccentricity vector: points from focus toward periapsis.
+    //   e_vec = (v x h) / mu  -  r_hat
+    // Its magnitude is the orbital eccentricity (0 = circle, 0<e<1 = ellipse).
+    const shared::Vec3 eccentricityVec = subtract(
+        scale(cross(relativeVelocity, angularMomentum), 1.0 / mu),
+        scale(relativePosition, 1.0 / distanceFromCenter));
+    const double eccentricity = length(eccentricityVec);
 
-    if (e >= 1.0)
-        return cache;
+    if (eccentricity >= 1.0)
+        return cache;  // Not elliptical (parabolic/hyperbolic)
 
-    // Elliptical orbit confirmed
+    // --- Elliptical orbit confirmed ---
     cache.isElliptic = true;
-    cache.eccentricity = e;
+    cache.eccentricity = eccentricity;
 
-    // Semi-major axis: a = -μ / (2ε)
-    const double a = -mu / (2.0 * epsilon);
-    cache.semiMajorAxis = a;
-    cache.semiMinorAxis = a * std::sqrt(1.0 - e * e);
-    cache.periapsisRadius = a * (1.0 - e);
-    cache.apoapsisRadius = a * (1.0 + e);
+    // Semi-major axis from the vis-viva relation:
+    //   a = -mu / (2 * epsilon)
+    // Negative energy gives positive semi-major axis.
+    const double semiMajorAxis = -mu / (2.0 * specificEnergy);
+    cache.semiMajorAxis = semiMajorAxis;
 
-    cache.orbitNormal = hHat;
+    // Semi-minor axis:  b = a * sqrt(1 - e^2)
+    cache.semiMinorAxis = semiMajorAxis * std::sqrt(1.0 - eccentricity * eccentricity);
 
-    // In-plane basis vectors
-    shared::Vec3 pHat;
-    if (e > kNearCircularEccentricityThreshold)
+    // Periapsis (closest approach) and apoapsis (farthest point):
+    //   r_peri = a * (1 - e)
+    //   r_apo  = a * (1 + e)
+    cache.periapsisRadius = semiMajorAxis * (1.0 - eccentricity);
+    cache.apoapsisRadius = semiMajorAxis * (1.0 + eccentricity);
+
+    cache.orbitNormal = angularMomentumDir;
+
+    // In-plane basis vectors: periapsisDir (toward periapsis) and sideDir (90 deg ahead).
+    shared::Vec3 periapsisDir;
+    if (eccentricity > kNearCircularEccentricityThreshold)
     {
-        pHat = normalize(eVec);
+        periapsisDir = normalize(eccentricityVec);
     }
     else
     {
-        // Near-circular fallback: project position onto orbital plane
-        const shared::Vec3 projected = projectOntoPlane(relativePosition, hHat);
+        // Near-circular fallback: project position onto orbital plane as reference direction.
+        const shared::Vec3 projected = projectOntoPlane(relativePosition, angularMomentumDir);
         if (length(projected) < kAngularMomentumEpsilon)
-            return cache; // degenerate: position lies along orbit normal
-        pHat = normalize(projected);
+            return cache;  // Degenerate: position lies along orbit normal
+        periapsisDir = normalize(projected);
     }
-    const shared::Vec3 qHat = cross(hHat, pHat);
+    const shared::Vec3 sideDir = cross(angularMomentumDir, periapsisDir);
 
-    cache.periapsisDirection = pHat;
-    cache.sideDirection = qHat;
+    cache.periapsisDirection = periapsisDir;
+    cache.sideDirection = sideDir;
 
-    // Ellipse center: c = -a * e * p_hat
-    cache.ellipseCenter = scale(pHat, -a * e);
+    // Ellipse geometric center offset from the focus (body position):
+    //   center = -a * e * periapsisDir
+    cache.ellipseCenter = scale(periapsisDir, -semiMajorAxis * eccentricity);
 
-    // True anomaly
-    if (e > kNearCircularEccentricityThreshold)
+    // True anomaly (nu): angle from periapsis to current position, measured at focus.
+    // For eccentric orbits, compute from eccentricity vector; for near-circular, from periapsisDir.
+    if (eccentricity > kNearCircularEccentricityThreshold)
     {
-        const double cosNu = dot(eVec, relativePosition) / (e * r);
-        const double sinNu = dot(hHat, cross(eVec, relativePosition)) / (e * r);
+        const double denominator = eccentricity * distanceFromCenter;
+        const double cosNu = dot(eccentricityVec, relativePosition) / denominator;
+        const double sinNu = dot(angularMomentumDir, cross(eccentricityVec, relativePosition)) / denominator;
         cache.trueAnomaly = std::atan2(sinNu, cosNu);
     }
     else
     {
-        // Near-circular: true anomaly from position relative to p_hat
-        const double cosNu = dot(pHat, relativePosition) / r;
-        const double sinNu = dot(qHat, relativePosition) / r;
+        // Near-circular: true anomaly from position relative to periapsisDir.
+        const double cosNu = dot(periapsisDir, relativePosition) / distanceFromCenter;
+        const double sinNu = dot(sideDir, relativePosition) / distanceFromCenter;
         cache.trueAnomaly = std::atan2(sinNu, cosNu);
     }
 
-    // Eccentric anomaly: E = atan2(sqrt(1-e²)*sin(ν), e + cos(ν))
-    const double sinNu = std::sin(cache.trueAnomaly);
-    const double cosNu = std::cos(cache.trueAnomaly);
+    // Eccentric anomaly (E): auxiliary angle on the circumscribed circle.
+    //   E = atan2(sqrt(1 - e^2) * sin(nu),  e + cos(nu))
+    const double sinTrueAnomaly = std::sin(cache.trueAnomaly);
+    const double cosTrueAnomaly = std::cos(cache.trueAnomaly);
     cache.eccentricAnomaly = std::atan2(
-        std::sqrt(1.0 - e * e) * sinNu,
-        e + cosNu);
+        std::sqrt(1.0 - eccentricity * eccentricity) * sinTrueAnomaly,
+        eccentricity + cosTrueAnomaly);
 
-    // Mean anomaly: M = E - e * sin(E)
-    cache.meanAnomaly = cache.eccentricAnomaly - e * std::sin(cache.eccentricAnomaly);
+    // Mean anomaly (M): uniformly-advancing angle proportional to elapsed time.
+    //   M = E - e * sin(E)    (Kepler's equation)
+    cache.meanAnomaly = cache.eccentricAnomaly - eccentricity * std::sin(cache.eccentricAnomaly);
 
     return cache;
 }
@@ -128,23 +145,29 @@ double computeQualityScore(
     const shared::Vec3& relativePosition,
     double mu)
 {
-    const double r = length(relativePosition);
+    const double distanceFromCenter = length(relativePosition);
     constexpr double kMinRadius = 1.0;
-    if (r < kMinRadius)
+    if (distanceFromCenter < kMinRadius)
         return 0.0;
 
-    // Two-body acceleration: a_2b = -μ * r / |r|³
-    const shared::Vec3 a2b = scale(relativePosition, -mu / (r * r * r));
-    const double a2bMag = length(a2b);
+    // Two-body gravitational acceleration: a_2body = -mu * r_hat / |r|^2
+    // Written as: a_2body = r * (-mu / |r|^3) to reuse the position vector direction.
+    const double inverseCubeDistance = -mu / (distanceFromCenter * distanceFromCenter * distanceFromCenter);
+    const shared::Vec3 twoBodyAccel = scale(relativePosition, inverseCubeDistance);
+    const double twoBodyAccelMag = length(twoBodyAccel);
 
-    // Perturbation: a_pert = a_total - a_2b
-    const shared::Vec3 aPert = subtract(totalAcceleration, a2b);
-    const double aPertMag = length(aPert);
+    // Perturbation acceleration: everything beyond the dominant two-body term.
+    //   a_pert = a_total - a_2body
+    const shared::Vec3 perturbationAccel = subtract(totalAcceleration, twoBodyAccel);
+    const double perturbationAccelMag = length(perturbationAccel);
 
+    // Quality score: 1.0 when perturbation is negligible, approaching 0.0 when
+    // perturbation dominates. Uses a Lorentzian decay:
+    //   Q = 1 / (1 + k * eta)   where eta = |a_pert| / |a_2body|
     constexpr double kEpsilon = 1e-15;
-    const double eta = aPertMag / std::max(a2bMag, kEpsilon);
+    const double perturbationRatio = perturbationAccelMag / std::max(twoBodyAccelMag, kEpsilon);
 
-    return std::clamp(1.0 / (1.0 + kQualityScaleEta * eta), 0.0, 1.0);
+    return std::clamp(1.0 / (1.0 + kQualityScaleEta * perturbationRatio), 0.0, 1.0);
 }
 
 } // namespace spaceship::server

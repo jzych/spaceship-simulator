@@ -8,25 +8,31 @@ shared::Vec3 computeGravitationalAcceleration(
     const shared::Vec3& position,
     std::span<const MassiveBodyState> massiveBodies)
 {
-    shared::Vec3 total {};
+    // Sum Newtonian gravitational acceleration from all massive bodies.
+    // Each body j contributes:
+    //   a_j = mu_j * (x_j - x) / |x_j - x|^3
+    // where mu_j = G * M_j is the gravitational parameter.
+    shared::Vec3 totalAcceleration {};
 
     for (const auto& body : massiveBodies)
     {
-        const shared::Vec3 r = subtract(body.transform.position, position);
-        const double d = length(r);
+        const shared::Vec3 toBody = subtract(body.transform.position, position);
+        const double distance = length(toBody);
 
         // Skip contributions closer than 1 m to avoid division-by-zero or
         // numerically explosive accelerations from degenerate positions.
         // Physically realistic minimum distances are many orders of magnitude larger.
         constexpr double kMinDistanceMeters = 1.0;
-        if (d < kMinDistanceMeters)
+        if (distance < kMinDistanceMeters)
             continue;
 
-        // a_j = μ_j * (x_j - x) / |x_j - x|³
-        total = add(total, scale(r, body.definition.muMetersCubedPerSecondSquared / (d * d * d)));
+        // Inverse-cube law: a = mu * r_hat / |r|^2 = mu * r / |r|^3
+        const double inverseCubeDistance = body.definition.muMetersCubedPerSecondSquared
+                                           / (distance * distance * distance);
+        totalAcceleration = add(totalAcceleration, scale(toBody, inverseCubeDistance));
     }
 
-    return total;
+    return totalAcceleration;
 }
 
 void GravitySystem::update(

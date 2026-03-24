@@ -43,6 +43,10 @@
 # local build directories
 /build/
 /build-ci/
+/build-new/
+
+# Local scripts output
+sonar-findings.md
 
 # custom directory
 /.ignore

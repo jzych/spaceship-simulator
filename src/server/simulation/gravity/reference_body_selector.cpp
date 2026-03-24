@@ -17,7 +17,8 @@ ReferenceBodySelection ReferenceBodySelector::update(
     if (massiveBodies.empty())
         return {};
 
-    // Compute gravitational acceleration magnitude from each body
+    // Score each body by gravitational acceleration magnitude at the ship's position.
+    // Uses |a| = mu / d^2 (inverse-square law without direction).
     struct BodyScore
     {
         shared::NetId netId {};
@@ -34,17 +35,20 @@ ReferenceBodySelection ReferenceBodySelector::update(
     for (std::size_t i = 0; i < bodyCount; ++i)
     {
         const auto& body = massiveBodies[i];
-        const shared::Vec3 r = subtract(body.transform.position, shipPosition);
-        const double d = length(r);
+        const shared::Vec3 toBody = subtract(body.transform.position, shipPosition);
+        const double distance = length(toBody);
         constexpr double kMinDist = 1.0;
-        const double accelMag = (d < kMinDist)
+
+        // Gravitational acceleration magnitude: |a| = mu / d^2
+        const double accelMag = (distance < kMinDist)
             ? 0.0
-            : body.definition.muMetersCubedPerSecondSquared / (d * d);
+            : body.definition.muMetersCubedPerSecondSquared / (distance * distance);
 
         scores[i] = {body.definition.netId, accelMag, 0.0};
         totalAccelMag += accelMag;
     }
 
+    // Normalize scores to [0, 1] — fraction of total gravitational influence.
     constexpr double kEps = 1e-30;
     for (std::size_t i = 0; i < bodyCount; ++i)
         scores[i].score = scores[i].accelMag / (totalAccelMag + kEps);
@@ -82,7 +86,8 @@ ReferenceBodySelection ReferenceBodySelector::update(
         }
     }
 
-    // Check hysteresis condition: challenger must exceed current * (1 + delta)
+    // Hysteresis: challenger must exceed current by a configurable margin
+    // to prevent oscillation between bodies near the sphere of influence boundary.
     if (bestChallengerScore > currentScore * (1.0 + config.referenceBodyHysteresisDelta))
     {
         dwellAccumulator_ += dt;
