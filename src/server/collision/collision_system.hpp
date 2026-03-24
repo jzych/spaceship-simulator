@@ -24,7 +24,7 @@ class CollisionSystem
     // Run one full CCD collision pass over [0, dt].
     //   - Builds swept-AABB broad phase for all small objects.
     //   - Runs narrow-phase sphere-sweep TOI for candidate pairs and all small-vs-massive-body pairs.
-    //   - Resolves hits in ascending (toi, minNetId, maxNetId) order.
+    //   - Resolves hits in ascending (toi, pairIdLow, pairIdHigh) order.
     //   - Applies energy-based despawn per gameplay policy.
     //   - Appends CollisionEvents to outEvents.
     //   - Directly erases despawned entities from ships and projectiles.

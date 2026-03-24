@@ -38,37 +38,61 @@ namespace
 {
 
 // Reduced-mass relative kinetic energy for two colliding objects.
+//
+// Uses the centre-of-mass frame kinetic energy formula:
+//   E_rel = 0.5 * mu_r * |dv|^2
+// where mu_r is the reduced mass:
+//   mu_r = (mA * mB) / (mA + mB)
+// and dv is the relative velocity between the two objects.
+//
+// E_rel determines the severity of the impact — higher energy means
+// more destructive. Compared against per-pair-type thresholds in
+// SimulationConfig to decide whether one or both entities are destroyed.
 double computeRelativeEnergy(
-    double mA, const shared::Vec3& vA,
-    double mB, const shared::Vec3& vB) noexcept
+    double massA, const shared::Vec3& velA,
+    double massB, const shared::Vec3& velB) noexcept
 {
-    const double mu_r = (mA * mB) / (mA + mB);
-    const shared::Vec3 dv = subtract(vA, vB);
-    return 0.5 * mu_r * dot(dv, dv);
+    const double reducedMass  = (massA * massB) / (massA + massB);
+    const shared::Vec3 relativeVelocity = subtract(velA, velB);
+    const double relativeSpeedSquared   = dot(relativeVelocity, relativeVelocity);
+    return 0.5 * reducedMass * relativeSpeedSquared;
 }
 
-// Perfectly inelastic centre-of-mass velocity.
-shared::Vec3 computeVcm(
-    double mA, const shared::Vec3& vA,
-    double mB, const shared::Vec3& vB) noexcept
+// Perfectly inelastic centre-of-mass velocity (coefficient of restitution e = 0).
+//
+// After a perfectly inelastic collision both objects move at the same
+// velocity — the momentum-weighted average:
+//   v_cm = (mA * vA + mB * vB) / (mA + mB)
+//
+// The survivor of a partially-destructive hit is assigned v_cm so that
+// momentum is conserved while all relative kinetic energy is absorbed.
+shared::Vec3 computeCentreOfMassVelocity(
+    double massA, const shared::Vec3& velA,
+    double massB, const shared::Vec3& velB) noexcept
 {
-    const double total = mA + mB;
+    const double totalMass = massA + massB;
     return {
-        (mA * vA.x + mB * vB.x) / total,
-        (mA * vA.y + mB * vB.y) / total,
-        (mA * vA.z + mB * vB.z) / total,
+        (massA * velA.x + massB * velB.x) / totalMass,
+        (massA * velA.y + massB * velB.y) / totalMass,
+        (massA * velA.z + massB * velB.z) / totalMass,
     };
 }
 
 // A pending collision to resolve, sorted before processing.
+//
+// Sorted by (toi, pairIdLow, pairIdHigh) to produce deterministic resolution
+// order. pairIdLow/pairIdHigh are NOT a range of entity ids — they are the
+// smaller and larger NetId of the two participants in this specific collision
+// pair, used purely as a tie-breaking key when multiple collisions share the
+// same TOI.
 struct PendingHit
 {
     double          toi       {};
-    shared::NetId   netIdMin  {};  // sort key (smaller netId)
-    shared::NetId   netIdMax  {};  // sort key (larger netId)
-    std::size_t     idxA      {};  // index into SmallSnapshot array
-    std::size_t     idxB      {};  // index into SmallSnapshot array OR massive body array
-    bool            bIsMassive {}; // true → idxB is a massive body index
+    shared::NetId   pairIdLow  {};  // min(netIdA, netIdB) — deterministic sort key
+    shared::NetId   pairIdHigh {};  // max(netIdA, netIdB) — deterministic sort key
+    std::size_t     idxA      {};   // index into SmallSnapshot array
+    std::size_t     idxB      {};   // index into SmallSnapshot array OR massive body array
+    bool            bIsMassive {};   // true → idxB is a massive body index
 };
 
 // Immutable kinematic snapshot of one small entity for one CCD interval.
@@ -83,7 +107,13 @@ struct SmallSnapshot
     double             massKg   {};
 };
 
-// Resolve all sorted hits in (toi, minNetId, maxNetId) order.
+// Resolve all sorted hits in ascending (toi, pairIdLow, pairIdHigh) order.
+//
+// Each hit involves exactly two entities. Processing in sorted order ensures
+// deterministic outcomes regardless of broad-phase iteration order. If an
+// entity was already destroyed by an earlier hit in this same interval, any
+// later hit involving that entity is skipped.
+//
 // Fills `destroyed` with all netIds that should be removed and
 // `vcmWriteBack` with the survivor velocities to apply before erasure.
 void resolveHits(
@@ -97,7 +127,8 @@ void resolveHits(
 {
     for (const auto& hit : hits)
     {
-        if (destroyed.count(hit.netIdMin) || destroyed.count(hit.netIdMax))
+        // Skip if either participant was already destroyed by an earlier hit this interval.
+        if (destroyed.count(hit.pairIdLow) || destroyed.count(hit.pairIdHigh))
             continue;
 
         if (hit.bIsMassive)
@@ -106,14 +137,16 @@ void resolveHits(
             const auto& s    = snaps[hit.idxA];
             const auto& body = massiveBodies[hit.idxB];
 
-            // Approximate E_rel: use small object mass as mu_r (body mass >> small mass)
-            const shared::Vec3 dv  = subtract(s.velStart, body.velocity.linear);
-            const double       eRel = 0.5 * s.massKg * dot(dv, dv);
+            // For small-vs-massive, reduced mass mu_r ≈ m_small (since M_body >> m_small).
+            // E_rel = 0.5 * m_small * |v_small - v_body|^2
+            const shared::Vec3 relativeVelocity = subtract(s.velStart, body.velocity.linear);
+            const double       relativeSpeedSq  = dot(relativeVelocity, relativeVelocity);
+            const double       impactEnergy = 0.5 * s.massKg * relativeSpeedSq;
 
             const bool smallIsA = (s.netId < body.definition.netId);
             CollisionEvent ev;
             ev.toi        = hit.toi;
-            ev.eRelJoules = eRel;
+            ev.eRelJoules = impactEnergy;
             ev.outcome    = CollisionOutcome::SmallDespawned;
             if (smallIsA)
             {
@@ -130,40 +163,46 @@ void resolveHits(
         }
         else
         {
-            // Small-vs-small: A = lower netId, B = higher netId.
+            // Small-vs-small: canonically order so A has the lower netId.
+            // The lower-netId entity is the deterministic tie-break survivor
+            // when exactly one entity must be despawned.
             const auto& rawA = snaps[hit.idxA];
             const auto& rawB = snaps[hit.idxB];
             const SmallSnapshot* sA = (rawA.netId < rawB.netId) ? &rawA : &rawB;
             const SmallSnapshot* sB = (rawA.netId < rawB.netId) ? &rawB : &rawA;
 
-            const double       mA   = sA->massKg;
-            const double       mB   = sB->massKg;
-            const double       eRel = computeRelativeEnergy(mA, sA->velStart, mB, sB->velStart);
-            const shared::Vec3 vcm  = computeVcm(mA, sA->velStart, mB, sB->velStart);
+            const double       massA   = sA->massKg;
+            const double       massB   = sB->massKg;
+            const double       impactEnergy    = computeRelativeEnergy(massA, sA->velStart, massB, sB->velStart);
+            const shared::Vec3 survivorVelocity = computeCentreOfMassVelocity(massA, sA->velStart, massB, sB->velStart);
 
             CollisionEvent ev;
             ev.toi        = hit.toi;
-            ev.eRelJoules = eRel;
+            ev.eRelJoules = impactEnergy;
             ev.netIdA     = sA->netId;  ev.kindA = sA->kind;
             ev.netIdB     = sB->netId;  ev.kindB = sB->kind;
 
+            // --- Projectile vs Projectile ---
             if (sA->kind == shared::EntityKind::Projectile &&
                 sB->kind == shared::EntityKind::Projectile)
             {
-                if (eRel > config.projectileProjectileDestroyEnergyJoules)
+                if (impactEnergy > config.projectileProjectileDestroyEnergyJoules)
                 {
+                    // High energy: both projectiles destroyed.
                     ev.outcome = CollisionOutcome::BothDespawned;
                     destroyed.insert(sA->netId);
                     destroyed.insert(sB->netId);
                 }
                 else
                 {
-                    // Despawn B (higher netId); A survives with v_cm
+                    // Low energy: B (higher netId) destroyed; A survives
+                    // with the perfectly inelastic centre-of-mass velocity.
                     ev.outcome = CollisionOutcome::BDespawned;
                     destroyed.insert(sB->netId);
-                    vcmWriteBack[sA->netId] = vcm;
+                    vcmWriteBack[sA->netId] = survivorVelocity;
                 }
             }
+            // --- Ship vs Projectile ---
             else if ((sA->kind == shared::EntityKind::Ship      && sB->kind == shared::EntityKind::Projectile) ||
                      (sA->kind == shared::EntityKind::Projectile && sB->kind == shared::EntityKind::Ship))
             {
@@ -171,35 +210,40 @@ void resolveHits(
                 const SmallSnapshot* proj = (sA->kind == shared::EntityKind::Ship) ? sB : sA;
                 const bool projIsB = (sB == proj);
 
+                // Projectile is always destroyed on ship impact.
                 destroyed.insert(proj->netId);
 
-                if (eRel > config.shipProjectileDestroyShipEnergyJoules)
+                if (impactEnergy > config.shipProjectileDestroyShipEnergyJoules)
                 {
+                    // High energy: ship is also destroyed.
                     ev.outcome = CollisionOutcome::BothDespawned;
                     destroyed.insert(ship->netId);
                 }
                 else
                 {
+                    // Low energy: ship survives with centre-of-mass velocity.
                     ev.outcome = projIsB ? CollisionOutcome::BDespawned
                                          : CollisionOutcome::ADespawned;
-                    vcmWriteBack[ship->netId] = vcm;
+                    vcmWriteBack[ship->netId] = survivorVelocity;
                 }
             }
+            // --- Ship vs Ship ---
             else
             {
-                // Ship vs ship
-                if (eRel > config.shipShipDestroyBothEnergyJoules)
+                if (impactEnergy > config.shipShipDestroyBothEnergyJoules)
                 {
+                    // High energy: both ships destroyed.
                     ev.outcome = CollisionOutcome::BothDespawned;
                     destroyed.insert(sA->netId);
                     destroyed.insert(sB->netId);
                 }
                 else
                 {
-                    // Despawn B (higher netId); A survives with v_cm
+                    // Low energy: B (higher netId) destroyed; A survives
+                    // with the perfectly inelastic centre-of-mass velocity.
                     ev.outcome = CollisionOutcome::BDespawned;
                     destroyed.insert(sB->netId);
-                    vcmWriteBack[sA->netId] = vcm;
+                    vcmWriteBack[sA->netId] = survivorVelocity;
                 }
             }
 
@@ -293,11 +337,14 @@ void CollisionSystem::detectAndResolve(
         }
     }
 
-    // ---- 5. Sort by (toi, minNetId, maxNetId) for deterministic resolution --
+    // ---- 5. Deterministic sort: (toi, pairIdLow, pairIdHigh) ascending ------
+    // Ensures identical resolution order across runs and platforms.
+    // pairIdLow/pairIdHigh are the smaller/larger NetId of the two collision
+    // participants — they break ties when multiple pairs collide at the same TOI.
     std::sort(hits.begin(), hits.end(), [](const PendingHit& a, const PendingHit& b) {
-        if (a.toi      != b.toi)      return a.toi      < b.toi;
-        if (a.netIdMin != b.netIdMin) return a.netIdMin < b.netIdMin;
-        return a.netIdMax < b.netIdMax;
+        if (a.toi        != b.toi)        return a.toi        < b.toi;
+        if (a.pairIdLow  != b.pairIdLow)  return a.pairIdLow  < b.pairIdLow;
+        return a.pairIdHigh < b.pairIdHigh;
     });
 
     // ---- 6. Resolve hits ----------------------------------------------------

@@ -9,12 +9,16 @@ namespace spaceship::server
 namespace
 {
 
+// Axis-aligned bounding box in 3D.
 struct Aabb
 {
     double minX, minY, minZ;
     double maxX, maxY, maxZ;
 };
 
+// Build a swept AABB that encloses the sphere at both its start and end
+// positions during the interval, expanded by the sphere radius on each axis.
+// This is the conservative bounding volume for linear-motion CCD.
 [[nodiscard]] Aabb makeSweptAabb(const IntervalSnapshot& s) noexcept
 {
     const double r = s.radius;
@@ -28,6 +32,7 @@ struct Aabb
     };
 }
 
+// Two AABBs overlap if and only if they overlap on all three axes.
 [[nodiscard]] bool aabbsOverlap(const Aabb& a, const Aabb& b) noexcept
 {
     return a.maxX >= b.minX && a.minX <= b.maxX
@@ -43,6 +48,8 @@ std::vector<CandidatePair> broadPhaseSmallObjects(
     std::vector<CandidatePair> pairs;
     const auto n = snapshots.size();
 
+    // O(n^2) all-pairs test. Acceptable for the PoC entity count (<~50).
+    // Each pair is emitted with idxA < idxB to avoid duplicates.
     for (std::size_t i = 0; i < n; ++i)
     {
         const Aabb aabbI = makeSweptAabb(snapshots[i]);

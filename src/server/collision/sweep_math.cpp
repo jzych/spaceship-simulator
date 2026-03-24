@@ -16,55 +16,72 @@ std::optional<double> sphereSweepTOI(
     double rB,
     double dt) noexcept
 {
-    // Relative position and velocity
-    const shared::Vec3 p = subtract(posA0, posB0);  // A - B at t=0
-    const shared::Vec3 u = subtract(velA,  velB);   // relative velocity
+    // Solve for the time of impact (TOI) when two moving spheres first touch.
+    //
+    // Problem: find smallest t in [0, dt] such that |posA(t) - posB(t)| = rA + rB.
+    //
+    // With linear motion posA(t) = posA0 + velA*t, posB(t) = posB0 + velB*t,
+    // define relative quantities:
+    //   relativePosition p = posA0 - posB0    (separation at t=0)
+    //   relativeVelocity u = velA  - velB     (closing speed)
+    //   combinedRadius   R = rA + rB
+    //
+    // Then |p + u*t|^2 = R^2 expands to the quadratic:
+    //   a*t^2 + b*t + c = 0
+    // where:
+    //   a = dot(u, u)           = |u|^2       (relative speed squared)
+    //   b = 2 * dot(p, u)                     (approach rate term)
+    //   c = dot(p, p) - R^2     = |p|^2 - R^2 (initial separation minus combined radius)
 
-    const double R = rA + rB;   // combined radius
-    const double RR = R * R;
+    const shared::Vec3 relativePosition = subtract(posA0, posB0);
+    const shared::Vec3 relativeVelocity = subtract(velA,  velB);
 
-    // c = |p|^2 - R^2  (negative means already overlapping)
-    const double c = dot(p, p) - RR;
-    if (c <= 0.0)
+    const double combinedRadius        = rA + rB;
+    const double combinedRadiusSquared = combinedRadius * combinedRadius;
+
+    // c < 0 means spheres already overlap at interval start.
+    const double separationTermC = dot(relativePosition, relativePosition) - combinedRadiusSquared;
+    if (separationTermC <= 0.0)
     {
-        // Already overlapping at interval start
-        return 0.0;
+        return 0.0;  // Already overlapping → immediate contact
     }
 
-    // a = |u|^2
-    const double a = dot(u, u);
-    if (a < std::numeric_limits<double>::epsilon())
+    // a = |u|^2: relative speed squared. If near zero, objects are stationary
+    // relative to each other and not overlapping → no hit possible.
+    const double relativeSpeedSqA = dot(relativeVelocity, relativeVelocity);
+    if (relativeSpeedSqA < std::numeric_limits<double>::epsilon())
     {
-        // No relative motion and not overlapping → no hit
         return std::nullopt;
     }
 
-    // b = 2 * dot(p, u)
-    const double b = 2.0 * dot(p, u);
-
-    // If b >= 0 spheres are separating (or stationary) → no hit
-    if (b >= 0.0)
+    // b = 2 * dot(p, u): proportional to the rate of change of separation distance.
+    // If b >= 0, the objects are moving apart (or tangent) → no future contact.
+    const double approachRateB = 2.0 * dot(relativePosition, relativeVelocity);
+    if (approachRateB >= 0.0)
     {
         return std::nullopt;
     }
 
     // discriminant = b^2 - 4ac
-    const double disc = b * b - 4.0 * a * c;
-    if (disc < 0.0)
-    {
-        // Complex roots → no hit (spheres pass each other)
-        return std::nullopt;
-    }
-
-    // Earliest root: t = (-b - sqrt(disc)) / (2a)
-    const double t = (-b - std::sqrt(disc)) / (2.0 * a);
-
-    if (t < 0.0 || t > dt)
+    // Negative discriminant means the trajectories never bring the spheres
+    // within combined radius — they pass each other in 3D space.
+    const double discriminant = approachRateB * approachRateB - 4.0 * relativeSpeedSqA * separationTermC;
+    if (discriminant < 0.0)
     {
         return std::nullopt;
     }
 
-    return t;
+    // Earliest root: t = (-b - sqrt(discriminant)) / (2a)
+    // We want the first contact (smaller root). The larger root is when the
+    // spheres would separate again after passing through each other.
+    const double timeOfImpact = (-approachRateB - std::sqrt(discriminant)) / (2.0 * relativeSpeedSqA);
+
+    if (timeOfImpact < 0.0 || timeOfImpact > dt)
+    {
+        return std::nullopt;  // Contact occurs outside the simulation interval
+    }
+
+    return timeOfImpact;
 }
 
 } // namespace spaceship::server
