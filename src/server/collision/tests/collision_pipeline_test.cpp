@@ -6,6 +6,9 @@
 using namespace spaceship::server;
 using namespace spaceship::shared;
 
+// Energy threshold of 0.0 J means any non-zero relative velocity triggers destruction.
+constexpr double kAlwaysDestroyThreshold = 0.0;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -210,7 +213,7 @@ TEST(CollisionPipelineTest,
     std::vector<ProjectileState> projectiles = {pA, pB};
     std::vector<CollisionEvent> events;
     SimulationConfig config;
-    config.projectileProjectileDestroyEnergyJoules = 0.0;  // always destroy both
+    config.projectileProjectileDestroyEnergyJoules = kAlwaysDestroyThreshold;
 
     CollisionSystem system;
     system.detectAndResolve(ships, projectiles, {}, events, config, 1.0 / 60.0);
@@ -236,7 +239,7 @@ TEST(CollisionPipelineTest,
     std::vector<ProjectileState> projectiles = {pA, pB, pC};
     std::vector<CollisionEvent> events;
     SimulationConfig config;
-    config.projectileProjectileDestroyEnergyJoules = 0.0;  // always destroy both
+    config.projectileProjectileDestroyEnergyJoules = kAlwaysDestroyThreshold;
 
     CollisionSystem system;
     system.detectAndResolve(ships, projectiles, {}, events, config, 1.0 / 60.0);
@@ -268,4 +271,57 @@ TEST(CollisionPipelineTest,
     EXPECT_EQ(ships.size(), 1U);
     EXPECT_EQ(projectiles.size(), 1U);
     EXPECT_TRUE(events.empty());
+}
+
+// ---------------------------------------------------------------------------
+// Ship vs ship
+// ---------------------------------------------------------------------------
+
+TEST(CollisionPipelineTest,
+     GivenTwoShipsHighEnergyCollision_WhenDetectAndResolve_ThenBothDespawned)
+{
+    // Two 1000-kg ships approaching head-on at ±500 m/s.
+    // Combined radius = 10 m; gap = 10 m → toi = 10 / 1000 = 0.01 s < 1/60.
+    // mu_r = 500 kg; |dv| = 1000 m/s; E_rel = 0.5 * 500 * 1e6 = 2.5e8 J >> 500 000 J threshold.
+    auto sA = makeShip(100, {0.0,  0, 0}, { 500, 0, 0});
+    auto sB = makeShip(101, {20.0, 0, 0}, {-500, 0, 0});
+
+    std::vector<ShipState> ships = {sA, sB};
+    std::vector<ProjectileState> projectiles;
+    std::vector<CollisionEvent> events;
+    SimulationConfig config;  // default threshold = 500 000 J
+
+    CollisionSystem system;
+    system.detectAndResolve(ships, projectiles, {}, events, config, 1.0 / 60.0);
+
+    EXPECT_TRUE(ships.empty());
+    ASSERT_EQ(events.size(), 1U);
+    EXPECT_EQ(events[0].outcome, CollisionOutcome::BothDespawned);
+}
+
+TEST(CollisionPipelineTest,
+     GivenTwoShipsLowEnergyCollision_WhenDetectAndResolve_ThenOneShipSurvivesWithVcm)
+{
+    // Ship A (1000 kg) at x=0, stationary.
+    // Ship B (1000 kg) at x=10.1 (gap=0.1 m), moving left at -1 m/s.
+    // toi = 0.1 / 1 = 0.1 s > 1/60 ≈ 0.0167 s? No — gap = 10.1 - 10 = 0.1 m, speed = 1 m/s → toi = 0.1 s.
+    // That's > dt, so move B closer: x=10.01, gap=0.01 m → toi = 0.01 s < 1/60.
+    // mu_r = 500 kg; |dv| = 1 m/s; E_rel = 0.5 * 500 * 1 = 250 J << 500 000 J threshold.
+    // Lower-netId ship (A=100) survives with v_cm = (0*1000 + (-1)*1000) / 2000 = -0.5 m/s.
+    auto sA = makeShip(100, {0.0,   0, 0}, {0, 0, 0});
+    auto sB = makeShip(101, {10.01, 0, 0}, {-1, 0, 0});
+
+    std::vector<ShipState> ships = {sA, sB};
+    std::vector<ProjectileState> projectiles;
+    std::vector<CollisionEvent> events;
+    SimulationConfig config;
+
+    CollisionSystem system;
+    system.detectAndResolve(ships, projectiles, {}, events, config, 1.0 / 60.0);
+
+    ASSERT_EQ(ships.size(), 1U);
+    EXPECT_EQ(ships[0].netId, 100U);  // lower netId survives
+    ASSERT_EQ(events.size(), 1U);
+    EXPECT_EQ(events[0].outcome, CollisionOutcome::BDespawned);
+    EXPECT_NEAR(ships[0].velocity.linear.x, -0.5, 1e-9);  // v_cm
 }

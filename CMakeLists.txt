@@ -64,6 +64,9 @@ add_executable(spaceship-simulator src/main.cpp)
 target_link_libraries(spaceship-simulator PRIVATE spaceship-server spaceship-client-stub)
 
 if(BUILD_TESTING)
+    # Expose test-only API (e.g. SimulationServer::injectProjectile) in the server library.
+    target_compile_definitions(spaceship-server PRIVATE BUILD_TESTING)
+
     include(FetchContent)
 
     FetchContent_Declare(
@@ -104,6 +107,7 @@ if(BUILD_TESTING)
             src
             src/server/tests
     )
+    target_compile_definitions(spaceship-simulator-tests PRIVATE BUILD_TESTING)
     target_link_libraries(spaceship-simulator-tests
         PRIVATE
             GTest::gtest_main

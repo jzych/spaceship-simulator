@@ -143,6 +143,8 @@ void SimulationServer::tick()
         // ---- Adaptive substep path ----
         const TimestepLadderConfig& ladder = impl_->config.timestepLadder;
 
+        impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
+
         impl_->spawningSystem.update(
             impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
 
@@ -287,5 +289,12 @@ const std::vector<TimestepDiagnostics>& SimulationServer::timestepDiagnostics() 
 {
     return impl_->lastTimestepDiagnostics;
 }
+
+#ifdef BUILD_TESTING
+void SimulationServer::injectProjectile(ProjectileState projectile)
+{
+    impl_->world.projectiles.push_back(std::move(projectile));
+}
+#endif
 
 } // namespace spaceship::server

@@ -35,14 +35,14 @@ struct CollisionEvent
 // posEnd/velEnd:     state at t=dt (after integration).
 struct IntervalSnapshot
 {
-    shared::NetId   netId     {};
-    shared::Vec3    posStart  {};
-    shared::Vec3    velStart  {};
-    shared::Vec3    posEnd    {};
-    shared::Vec3    velEnd    {};
-    double          radius    {};
-    double          massKg    {};
-    shared::EntityKind kind   {};
+    shared::NetId      netId    {};
+    shared::EntityKind kind     {};
+    shared::Vec3       posStart {};
+    shared::Vec3       velStart {};
+    shared::Vec3       posEnd   {};
+    shared::Vec3       velEnd   {};
+    double             radius   {};
+    double             massKg   {};
 };
 
 } // namespace spaceship::server

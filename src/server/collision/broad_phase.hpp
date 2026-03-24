@@ -21,6 +21,8 @@ struct CandidatePair
 };
 
 // Returns all overlapping swept-AABB candidate pairs for narrow-phase testing.
+// Complexity: O(n²) over entity count n. Acceptable for the PoC (<~50 entities).
+// Consider sort-and-sweep on one axis when n consistently exceeds ~200 entities.
 // Massive bodies are not passed here; they are checked directly in narrow phase.
 [[nodiscard]] std::vector<CandidatePair> broadPhaseSmallObjects(
     std::span<const IntervalSnapshot> snapshots) noexcept;

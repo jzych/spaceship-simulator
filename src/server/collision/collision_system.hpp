@@ -28,7 +28,13 @@ class CollisionSystem
     //   - Applies energy-based despawn per gameplay policy.
     //   - Appends CollisionEvents to outEvents.
     //   - Directly erases despawned entities from ships and projectiles.
+    //   - Writes v_cm to the velocity of any survivor after a partially-inelastic hit.
     // Caller must rebuild shipIndex after this call if any ships were removed.
+    //
+    // Known limitation: the swept-AABB end position and narrow-phase TOI both assume
+    // constant velocity over dt (linear motion). Gravitational deflection within the
+    // interval is not modelled in the sweep; this is a deliberate first-pass approximation
+    // acceptable at 60 Hz with the bodies used in this simulation.
     void detectAndResolve(
         std::vector<ShipState>& ships,
         std::vector<ProjectileState>& projectiles,

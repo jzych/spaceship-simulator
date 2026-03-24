@@ -37,6 +37,12 @@ class SimulationServer
     [[nodiscard]] const std::string& lastSnapshotSummary() const;
     [[nodiscard]] const std::vector<TimestepDiagnostics>& timestepDiagnostics() const;
 
+#ifdef BUILD_TESTING
+    // Inject a pre-built projectile directly into the world for test scenarios
+    // that need to set up collisions without going through the full spawn pipeline.
+    void injectProjectile(ProjectileState projectile);
+#endif
+
   private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

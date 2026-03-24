@@ -154,7 +154,6 @@ TEST_F(SimulationServerSmokeTest,
         {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}}, {{0.0, 0.0, 0.0}}});
 
     // Position projectile just inside the ship hull so toi=0 (already overlapping)
-    spaceship::server::SimulationWorld& w = const_cast<spaceship::server::SimulationWorld&>(srv.world());
     spaceship::server::ProjectileState proj;
     proj.netId = 10'000U;
     proj.params = {10.0, shipId};
@@ -162,7 +161,7 @@ TEST_F(SimulationServerSmokeTest,
     proj.velocity.linear    = {-1.0, 0.0, 0.0};  // nonzero relative velocity → E_rel > 0 > threshold
     proj.collider.radiusMeters = cfg.projectileRadiusMeters;
     proj.massProperties = {cfg.projectileMassKg, 1.0 / cfg.projectileMassKg};
-    w.projectiles.push_back(proj);
+    srv.injectProjectile(proj);
 
     srv.tick();
 
@@ -187,7 +186,6 @@ TEST_F(SimulationServerSmokeTest,
         {{1000.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}}, {{0.0, 0.0, 0.0}}});
 
     // Add projectile overlapping ship A only
-    spaceship::server::SimulationWorld& w = const_cast<spaceship::server::SimulationWorld&>(srv.world());
     spaceship::server::ProjectileState proj;
     proj.netId = 10'000U;
     proj.params = {10.0, shipIdA};
@@ -195,7 +193,7 @@ TEST_F(SimulationServerSmokeTest,
     proj.velocity.linear    = {-1.0, 0.0, 0.0};  // nonzero relative velocity → E_rel > 0
     proj.collider.radiusMeters = cfg.projectileRadiusMeters;
     proj.massProperties = {cfg.projectileMassKg, 1.0 / cfg.projectileMassKg};
-    w.projectiles.push_back(proj);
+    srv.injectProjectile(proj);
 
     srv.tick();
 

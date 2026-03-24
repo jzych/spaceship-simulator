@@ -115,7 +115,7 @@ TEST(BroadPhaseTest,
 // ---------------------------------------------------------------------------
 
 TEST(BroadPhaseTest,
-     GivenThreeObjectsWithTwoPairsOverlapping_WhenBroadPhaseRun_ThenBothPairsReturned)
+     GivenThreeObjectsWithOnePairOverlapping_WhenBroadPhaseRun_ThenOnePairReturned)
 {
     // A at origin, B very close to A, C far away
     // A-B overlap, A-C don't, B-C don't
