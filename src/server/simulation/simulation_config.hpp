@@ -24,6 +24,14 @@ struct SimulationConfig
     double referenceBodyHysteresisDelta {0.15};
     double referenceBodyDwellTimeSeconds {5.0};
 
+    // Muzzle offset: projectile spawns this far beyond (ship_radius + proj_radius) along forward
+    double projectileSpawnOffsetSkinMeters {0.1};
+
+    // Collision energy thresholds (SI units — Joules)
+    double projectileProjectileDestroyEnergyJoules {1'000.0};
+    double shipProjectileDestroyShipEnergyJoules   {50'000.0};
+    double shipShipDestroyBothEnergyJoules         {500'000.0};
+
     // Adaptive timestep control (off by default — preserves fixed-step behaviour)
     bool useAdaptiveTimestep {false};
     TimestepLadderConfig timestepLadder {};

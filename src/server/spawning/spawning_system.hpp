@@ -16,12 +16,12 @@ inline constexpr shared::NetId kFirstProjectileNetId = 10'000U;
 class SpawningSystem
 {
   public:
-    shared::NetId spawnShip(
+    [[nodiscard]] shared::NetId spawnShip(
         std::vector<ShipState>& ships,
         const ShipSpawnRequest& request,
         const SimulationConfig& config,
         std::span<const MassiveBodyState> massiveBodies);
-    shared::NetId spawnProjectile(
+    [[nodiscard]] shared::NetId spawnProjectile(
         std::vector<ProjectileState>& projectiles,
         const ShipState& ship,
         const SimulationConfig& config,

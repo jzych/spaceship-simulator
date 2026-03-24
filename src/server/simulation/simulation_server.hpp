@@ -21,7 +21,7 @@ class SimulationServer
 {
   public:
     explicit SimulationServer(const SimulationConfig& config = {});
-    SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
+    explicit SimulationServer(SimulationWorld world, const SimulationConfig& config = {});
 
     // Required for pImpl with unique_ptr — defined in .cpp where Impl is complete.
     ~SimulationServer();
@@ -36,6 +36,12 @@ class SimulationServer
     [[nodiscard]] const SimulationWorld& world() const;
     [[nodiscard]] const std::string& lastSnapshotSummary() const;
     [[nodiscard]] const std::vector<TimestepDiagnostics>& timestepDiagnostics() const;
+
+#ifdef BUILD_TESTING
+    // Inject a pre-built projectile directly into the world for test scenarios
+    // that need to set up collisions without going through the full spawn pipeline.
+    void injectProjectile(ProjectileState projectile);
+#endif
 
   private:
     struct Impl;

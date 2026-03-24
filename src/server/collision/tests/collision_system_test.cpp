@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 using namespace spaceship::server;
+using namespace spaceship::shared;
 
 // ---------------------------------------------------------------------------
 // CollisionSystemTest — projectile TTL-based cleanup
@@ -66,23 +67,22 @@ TEST(CollisionSystemTest, GivenNoProjectiles_WhenUpdated_ThenNoChange)
     EXPECT_TRUE(projectiles.empty());
 }
 
-TEST(CollisionSystemTest, GivenProjectileWithTtl_WhenTtlDecremented_ThenReducedByFixedDelta)
+TEST(CollisionSystemTest, GivenProjectileWithTtl_WhenTtlDecremented_ThenReducedByDt)
 {
     CollisionSystem system;
-    SimulationConfig config {};
+    constexpr double dt = spaceship::shared::constants::kFixedDeltaSeconds;
     std::vector<ProjectileState> projectiles;
     projectiles.push_back(ProjectileState {10'000, {}, {}, {}, {}, {10.0, 100}});
 
-    system.decrementTtl(projectiles, config);
+    system.decrementTtl(projectiles, dt);
 
-    EXPECT_NEAR(projectiles[0].params.ttlSeconds, 10.0 - config.fixedDeltaSeconds, 1e-15);
+    EXPECT_NEAR(projectiles[0].params.ttlSeconds, 10.0 - dt, 1e-15);
 }
 
 TEST(CollisionSystemTest, GivenNoProjectiles_WhenTtlDecremented_ThenNoChange)
 {
     CollisionSystem system;
-    SimulationConfig config {};
     std::vector<ProjectileState> projectiles;
 
-    EXPECT_NO_FATAL_FAILURE(system.decrementTtl(projectiles, config));
+    EXPECT_NO_FATAL_FAILURE(system.decrementTtl(projectiles, spaceship::shared::constants::kFixedDeltaSeconds));
 }

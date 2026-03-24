@@ -104,7 +104,7 @@ void SimulationServer::tick()
 
     if (!impl_->config.useAdaptiveTimestep)
     {
-        // ---- Fixed-step path (original behaviour, unchanged) ----
+        // ---- Fixed-step path ----
         impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
         impl_->elapsedSeconds += frameDt;
 
@@ -112,6 +112,23 @@ void SimulationServer::tick()
             impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
 
         impl_->shipControlSystem.update(impl_->world.ships, impl_->config);
+
+        // CCD: detect and resolve collisions before integrating positions.
+        // Uses pre-integration positions and velocities as the interval start state.
+        impl_->world.collisionEvents.clear();
+        impl_->collisionSystem.detectAndResolve(
+            impl_->world.ships,
+            impl_->world.projectiles,
+            impl_->world.massiveBodies,
+            impl_->world.collisionEvents,
+            impl_->config,
+            frameDt);
+
+        // Rebuild ship index after possible despawns.
+        impl_->shipIndex.clear();
+        for (std::size_t i = 0; i < impl_->world.ships.size(); ++i)
+            impl_->shipIndex[impl_->world.ships[i].netId] = i;
+
         impl_->integrationSystem.integratePositions(
             impl_->world.ships, impl_->world.projectiles, impl_->config);
 
@@ -125,6 +142,8 @@ void SimulationServer::tick()
     {
         // ---- Adaptive substep path ----
         const TimestepLadderConfig& ladder = impl_->config.timestepLadder;
+
+        impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
 
         impl_->spawningSystem.update(
             impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
@@ -188,11 +207,26 @@ void SimulationServer::tick()
         }
 
         // Execute substeps.
+        impl_->world.collisionEvents.clear();
         for (int s = 0; s < plan.count; ++s)
         {
             impl_->massiveBodyMotionSystem.update(
                 impl_->world.massiveBodies, impl_->elapsedSeconds);
             impl_->elapsedSeconds += plan.dt;
+
+            // CCD per substep — catches tunneling at sub-frame granularity.
+            impl_->collisionSystem.detectAndResolve(
+                impl_->world.ships,
+                impl_->world.projectiles,
+                impl_->world.massiveBodies,
+                impl_->world.collisionEvents,
+                impl_->config,
+                plan.dt);
+
+            // Rebuild ship index after possible despawns.
+            impl_->shipIndex.clear();
+            for (std::size_t i = 0; i < impl_->world.ships.size(); ++i)
+                impl_->shipIndex[impl_->world.ships[i].netId] = i;
 
             impl_->integrationSystem.integratePositions(
                 impl_->world.ships, impl_->world.projectiles, plan.dt);
@@ -218,7 +252,7 @@ void SimulationServer::tick()
     }
 
     // Post-integration systems run once per outer tick regardless of substep count.
-    impl_->collisionSystem.decrementTtl(impl_->world.projectiles, impl_->config);
+    impl_->collisionSystem.decrementTtl(impl_->world.projectiles, frameDt);
     impl_->orbitCacheSystem.update(
         impl_->world.ships, impl_->world.massiveBodies, impl_->tickCount + 1, impl_->config);
     impl_->collisionSystem.update(impl_->world.projectiles);
@@ -255,5 +289,12 @@ const std::vector<TimestepDiagnostics>& SimulationServer::timestepDiagnostics() 
 {
     return impl_->lastTimestepDiagnostics;
 }
+
+#ifdef BUILD_TESTING
+void SimulationServer::injectProjectile(ProjectileState projectile)
+{
+    impl_->world.projectiles.push_back(std::move(projectile));
+}
+#endif
 
 } // namespace spaceship::server

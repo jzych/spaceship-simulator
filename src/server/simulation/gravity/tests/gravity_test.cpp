@@ -108,7 +108,7 @@ TEST_F(EarthOnlyCenteredTest, GivenShipNearEarth_WhenTicked_ThenNoGravityEvents)
     server.spawnShip(request);
     server.tick();
 
-    EXPECT_TRUE(server.world().events.empty());
+    EXPECT_TRUE(server.world().collisionEvents.empty());
 }
 
 TEST_F(EarthOnlyCenteredTest, GivenShipAtBodyCenter_WhenTicked_ThenNoCrash)

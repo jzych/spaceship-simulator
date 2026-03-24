@@ -129,3 +129,80 @@ TEST_F(SimulationServerSmokeTest, GivenServerTickedAtInterval_WhenSnapshotInterv
     EXPECT_FALSE(server.lastSnapshotSummary().empty());
     EXPECT_NE(server.lastSnapshotSummary().find("bodies=3"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// Ship despawn + shipIndex maintenance
+// ---------------------------------------------------------------------------
+
+TEST_F(SimulationServerSmokeTest,
+       GivenShipDespawnedByCollision_WhenUpdateShipControlCalledWithStaleId_ThenNoError)
+{
+    // Use an empty world (no massive bodies) so gravity doesn't pull ships.
+    spaceship::server::SimulationServer zeroGravServer {spaceship::server::SimulationWorld {}};
+
+    // Spawn two ships at the same position (already overlapping → toi=0 → both despawned
+    // if E_rel > shipShipDestroyBothEnergyJoules, but here they're stationary so E_rel=0).
+    // Instead, spawn one ship at a position already inside a "fake" projectile.
+    // Easier approach: spawn a ship and a fast projectile that will definitely destroy the ship.
+    spaceship::server::SimulationConfig cfg;
+    cfg.shipProjectileDestroyShipEnergyJoules = 0.0;  // always destroy ship on any hit
+
+    spaceship::server::SimulationServer srv {spaceship::server::SimulationWorld {}, cfg};
+
+    // Ship (identity orientation → forward = +x) at origin, stationary
+    const auto shipId = srv.spawnShip(spaceship::server::ShipSpawnRequest {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}}, {{0.0, 0.0, 0.0}}});
+
+    // Position projectile just inside the ship hull so toi=0 (already overlapping)
+    spaceship::server::ProjectileState proj;
+    proj.netId = 10'000U;
+    proj.params = {10.0, shipId};
+    proj.transform.position = {0.0, 0.0, 0.0};   // same as ship → overlapping → toi=0
+    proj.velocity.linear    = {-1.0, 0.0, 0.0};  // nonzero relative velocity → E_rel > 0 > threshold
+    proj.collider.radiusMeters = cfg.projectileRadiusMeters;
+    proj.massProperties = {cfg.projectileMassKg, 1.0 / cfg.projectileMassKg};
+    srv.injectProjectile(proj);
+
+    srv.tick();
+
+    // Ship should be despawned (E_rel > 0 > shipProjectileDestroyShipEnergyJoules=0)
+    EXPECT_TRUE(srv.world().ships.empty());
+    // Stale control update for the now-despawned ship must not crash or assert
+    EXPECT_NO_FATAL_FAILURE(
+        srv.updateShipControl(shipId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, false}));
+}
+
+TEST_F(SimulationServerSmokeTest,
+       GivenShipDespawnedByCollision_WhenSecondShipStillPresent_ThenShipIndexRemainsCorrect)
+{
+    spaceship::server::SimulationConfig cfg;
+    cfg.shipProjectileDestroyShipEnergyJoules = 0.0;
+
+    spaceship::server::SimulationServer srv {spaceship::server::SimulationWorld {}, cfg};
+
+    const auto shipIdA = srv.spawnShip(spaceship::server::ShipSpawnRequest {
+        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}}, {{0.0, 0.0, 0.0}}});
+    const auto shipIdB = srv.spawnShip(spaceship::server::ShipSpawnRequest {
+        {{1000.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}}, {{0.0, 0.0, 0.0}}});
+
+    // Add projectile overlapping ship A only
+    spaceship::server::ProjectileState proj;
+    proj.netId = 10'000U;
+    proj.params = {10.0, shipIdA};
+    proj.transform.position = {0.0, 0.0, 0.0};
+    proj.velocity.linear    = {-1.0, 0.0, 0.0};  // nonzero relative velocity → E_rel > 0
+    proj.collider.radiusMeters = cfg.projectileRadiusMeters;
+    proj.massProperties = {cfg.projectileMassKg, 1.0 / cfg.projectileMassKg};
+    srv.injectProjectile(proj);
+
+    srv.tick();
+
+    // Ship A should be despawned; ship B should remain
+    ASSERT_EQ(srv.world().ships.size(), 1U);
+    EXPECT_EQ(srv.world().ships[0].netId, shipIdB);
+
+    // Control update for surviving ship B must succeed
+    EXPECT_NO_FATAL_FAILURE(
+        srv.updateShipControl(shipIdB, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, false}));
+    EXPECT_DOUBLE_EQ(srv.world().ships[0].control.throttle, 1.0);
+}

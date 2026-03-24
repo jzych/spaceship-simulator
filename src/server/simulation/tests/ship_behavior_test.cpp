@@ -69,8 +69,11 @@ TEST_F(ZeroGravityShipBehaviorTest, GivenShipWithFireFlagSet_WhenTicked_ThenProj
     // pre-tick velocity (10.0) plus muzzle speed.
     constexpr double kExpectedProjectileVelocityX =
         10.0 + kDefaultProjectileMuzzleSpeedMetersPerSecond;
+    // Spawn position is offset along ship forward (+x): ship_x + ship_radius + proj_radius + skin
+    // = 1.0 + 5.0 + 0.1 + 0.1 = 6.2 m
+    constexpr double kSpawnOffsetX = 5.0 + 0.1 + 0.1;  // ship_radius + proj_radius + skin
     const double kExpectedProjectilePositionX =
-        1.0 + kExpectedProjectileVelocityX * spaceship::shared::constants::kFixedDeltaSeconds;
+        1.0 + kSpawnOffsetX + kExpectedProjectileVelocityX * spaceship::shared::constants::kFixedDeltaSeconds;
 
     const auto shipNetId = server.spawnShip(request);
     server.updateShipControl(shipNetId, spaceship::shared::ShipControl {1.0, {1.0, 0.0, 0.0, 0.0}, true});
