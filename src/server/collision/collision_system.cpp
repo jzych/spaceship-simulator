@@ -111,6 +111,74 @@ struct SmallSnapshot
 // Per-pair-type resolution helpers (extracted to reduce cognitive complexity)
 // ---------------------------------------------------------------------------
 
+CollisionEvent makeCollisionEvent(
+    const PendingHit&    hit,
+    shared::NetId        netIdA,
+    shared::EntityKind   kindA,
+    shared::NetId        netIdB,
+    shared::EntityKind   kindB,
+    double               impactEnergy) noexcept
+{
+    CollisionEvent ev;
+    ev.toi        = hit.toi;
+    ev.eRelJoules = impactEnergy;
+    ev.netIdA     = netIdA;
+    ev.kindA      = kindA;
+    ev.netIdB     = netIdB;
+    ev.kindB      = kindB;
+    return ev;
+}
+
+void destroyBoth(
+    CollisionEvent&                     ev,
+    shared::NetId                       netIdA,
+    shared::NetId                       netIdB,
+    std::unordered_set<shared::NetId>&  destroyed)
+{
+    ev.outcome = CollisionOutcome::BothDespawned;
+    destroyed.insert(netIdA);
+    destroyed.insert(netIdB);
+}
+
+void destroyOnlyB(
+    CollisionEvent&                                   ev,
+    shared::NetId                                     survivorNetId,
+    shared::NetId                                     destroyedNetId,
+    const shared::Vec3&                               survivorVelocity,
+    std::unordered_set<shared::NetId>&                destroyed,
+    std::unordered_map<shared::NetId, shared::Vec3>&  vcmWriteBack)
+{
+    ev.outcome = CollisionOutcome::BDespawned;
+    destroyed.insert(destroyedNetId);
+    vcmWriteBack[survivorNetId] = survivorVelocity;
+}
+
+void resolveSymmetricSmallPair(
+    const PendingHit&                                  hit,
+    const SmallSnapshot&                               sA,
+    const SmallSnapshot&                               sB,
+    double                                             impactEnergy,
+    const shared::Vec3&                                survivorVelocity,
+    double                                             destroyBothThreshold,
+    std::unordered_set<shared::NetId>&                destroyed,
+    std::unordered_map<shared::NetId, shared::Vec3>&  vcmWriteBack,
+    std::vector<CollisionEvent>&                      outEvents)
+{
+    CollisionEvent ev = makeCollisionEvent(
+        hit, sA.netId, sA.kind, sB.netId, sB.kind, impactEnergy);
+
+    if (impactEnergy > destroyBothThreshold)
+    {
+        destroyBoth(ev, sA.netId, sB.netId, destroyed);
+    }
+    else
+    {
+        destroyOnlyB(ev, sA.netId, sB.netId, survivorVelocity, destroyed, vcmWriteBack);
+    }
+
+    outEvents.emplace_back(ev);
+}
+
 // Resolve a small entity impacting a massive body.
 // The small entity is always destroyed; the massive body is unaffected.
 void resolveSmallVsMassive(
@@ -128,14 +196,14 @@ void resolveSmallVsMassive(
 
     const bool smallIsA = (small.netId < body.definition.netId);
 
-    CollisionEvent ev;
-    ev.toi        = hit.toi;
-    ev.eRelJoules = impactEnergy;
-    ev.outcome    = CollisionOutcome::SmallDespawned;
-    ev.netIdA     = smallIsA ? small.netId              : body.definition.netId;
-    ev.kindA      = smallIsA ? small.kind               : shared::EntityKind::MassiveBody;
-    ev.netIdB     = smallIsA ? body.definition.netId    : small.netId;
-    ev.kindB      = smallIsA ? shared::EntityKind::MassiveBody : small.kind;
+    CollisionEvent ev = makeCollisionEvent(
+        hit,
+        smallIsA ? small.netId : body.definition.netId,
+        smallIsA ? small.kind : shared::EntityKind::MassiveBody,
+        smallIsA ? body.definition.netId : small.netId,
+        smallIsA ? shared::EntityKind::MassiveBody : small.kind,
+        impactEnergy);
+    ev.outcome = CollisionOutcome::SmallDespawned;
 
     outEvents.emplace_back(ev);
     destroyed.insert(small.netId);
@@ -153,28 +221,10 @@ void resolveProjectileVsProjectile(
     std::unordered_map<shared::NetId, shared::Vec3>&     vcmWriteBack,
     std::vector<CollisionEvent>&                         outEvents)
 {
-    CollisionEvent ev;
-    ev.toi        = hit.toi;
-    ev.eRelJoules = impactEnergy;
-    ev.netIdA     = sA.netId;  ev.kindA = sA.kind;
-    ev.netIdB     = sB.netId;  ev.kindB = sB.kind;
-
-    if (impactEnergy > config.projectileProjectileDestroyEnergyJoules)
-    {
-        // High energy: both projectiles destroyed.
-        ev.outcome = CollisionOutcome::BothDespawned;
-        destroyed.insert(sA.netId);
-        destroyed.insert(sB.netId);
-    }
-    else
-    {
-        // Low energy: B (higher netId) destroyed; A survives
-        // with the perfectly inelastic centre-of-mass velocity.
-        ev.outcome = CollisionOutcome::BDespawned;
-        destroyed.insert(sB.netId);
-        vcmWriteBack[sA.netId] = survivorVelocity;
-    }
-    outEvents.emplace_back(ev);
+    resolveSymmetricSmallPair(
+        hit, sA, sB, impactEnergy, survivorVelocity,
+        config.projectileProjectileDestroyEnergyJoules,
+        destroyed, vcmWriteBack, outEvents);
 }
 
 // Resolve ship-vs-projectile collision.
@@ -193,11 +243,8 @@ void resolveShipVsProjectile(
     const SmallSnapshot* proj = (sA.kind == shared::EntityKind::Ship) ? &sB : &sA;
     const bool projIsB = (sB.kind == shared::EntityKind::Projectile);
 
-    CollisionEvent ev;
-    ev.toi        = hit.toi;
-    ev.eRelJoules = impactEnergy;
-    ev.netIdA     = sA.netId;  ev.kindA = sA.kind;
-    ev.netIdB     = sB.netId;  ev.kindB = sB.kind;
+    CollisionEvent ev = makeCollisionEvent(
+        hit, sA.netId, sA.kind, sB.netId, sB.kind, impactEnergy);
 
     // Projectile is always destroyed on ship impact.
     destroyed.insert(proj->netId);
@@ -205,8 +252,7 @@ void resolveShipVsProjectile(
     if (impactEnergy > config.shipProjectileDestroyShipEnergyJoules)
     {
         // High energy: ship is also destroyed.
-        ev.outcome = CollisionOutcome::BothDespawned;
-        destroyed.insert(ship->netId);
+        destroyBoth(ev, ship->netId, proj->netId, destroyed);
     }
     else
     {
@@ -230,28 +276,10 @@ void resolveShipVsShip(
     std::unordered_map<shared::NetId, shared::Vec3>&     vcmWriteBack,
     std::vector<CollisionEvent>&                         outEvents)
 {
-    CollisionEvent ev;
-    ev.toi        = hit.toi;
-    ev.eRelJoules = impactEnergy;
-    ev.netIdA     = sA.netId;  ev.kindA = sA.kind;
-    ev.netIdB     = sB.netId;  ev.kindB = sB.kind;
-
-    if (impactEnergy > config.shipShipDestroyBothEnergyJoules)
-    {
-        // High energy: both ships destroyed.
-        ev.outcome = CollisionOutcome::BothDespawned;
-        destroyed.insert(sA.netId);
-        destroyed.insert(sB.netId);
-    }
-    else
-    {
-        // Low energy: B (higher netId) destroyed; A survives
-        // with the perfectly inelastic centre-of-mass velocity.
-        ev.outcome = CollisionOutcome::BDespawned;
-        destroyed.insert(sB.netId);
-        vcmWriteBack[sA.netId] = survivorVelocity;
-    }
-    outEvents.emplace_back(ev);
+    resolveSymmetricSmallPair(
+        hit, sA, sB, impactEnergy, survivorVelocity,
+        config.shipShipDestroyBothEnergyJoules,
+        destroyed, vcmWriteBack, outEvents);
 }
 
 // ---------------------------------------------------------------------------
