@@ -105,8 +105,12 @@ void SimulationServer::tick()
     if (!impl_->config.useAdaptiveTimestep)
     {
         // ---- Fixed-step path ----
-        impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
+        // Advance the clock first so all systems operate at the same simulation time T+dt:
+        //   - massive body positions reflect T+dt
+        //   - gravitySystem below computes a_new = gravity(x(T+dt), M(T+dt))
+        //   - Velocity Verlet: v(T+dt) = v(T) + 0.5*(a_old + a_new)*dt — both at same time ✓
         impl_->elapsedSeconds += frameDt;
+        impl_->massiveBodyMotionSystem.update(impl_->world.massiveBodies, impl_->elapsedSeconds);
 
         impl_->spawningSystem.update(
             impl_->world.ships, impl_->world.projectiles, impl_->world.massiveBodies, impl_->config);
@@ -207,12 +211,16 @@ void SimulationServer::tick()
         }
 
         // Execute substeps.
+        // Advance the clock before updating bodies each substep so that:
+        //   - bodies are at T_{s+1} when gravitySystem computes a_new
+        //   - Velocity Verlet remains consistent: v(T_{s+1}) = v(T_s) + 0.5*(a(T_s) + a(T_{s+1}))*dt ✓
+        // The pre-loop massiveBodyMotionSystem call above (bodies at T) serves spawning only.
         impl_->world.collisionEvents.clear();
         for (int s = 0; s < plan.count; ++s)
         {
+            impl_->elapsedSeconds += plan.dt;
             impl_->massiveBodyMotionSystem.update(
                 impl_->world.massiveBodies, impl_->elapsedSeconds);
-            impl_->elapsedSeconds += plan.dt;
 
             // CCD per substep — catches tunneling at sub-frame granularity.
             impl_->collisionSystem.detectAndResolve(
