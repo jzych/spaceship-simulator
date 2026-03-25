@@ -29,7 +29,7 @@ struct SimulationServer::Impl
     SimulationWorld world {};
     shared::Tick tickCount {};
     double elapsedSeconds {};
-    std::string lastSnapshotSummary {};
+    WorldSnapshot lastSnapshot {};
 
     // Ship NetId → index in world.ships for O(1) control updates.
     // Valid as long as ships are never removed mid-vector; update on spawn.
@@ -262,7 +262,8 @@ void SimulationServer::tick()
     if (impl_->config.snapshotIntervalTicks > 0 &&
         impl_->tickCount % impl_->config.snapshotIntervalTicks == 0)
     {
-        impl_->lastSnapshotSummary = impl_->snapshotSystem.buildSnapshotSummary(impl_->world);
+        impl_->lastSnapshot = impl_->snapshotSystem.buildSnapshot(
+            impl_->world, impl_->tickCount, impl_->elapsedSeconds);
     }
 }
 
@@ -280,9 +281,9 @@ const SimulationWorld& SimulationServer::world() const
     return impl_->world;
 }
 
-const std::string& SimulationServer::lastSnapshotSummary() const
+const WorldSnapshot& SimulationServer::lastSnapshot() const
 {
-    return impl_->lastSnapshotSummary;
+    return impl_->lastSnapshot;
 }
 
 const std::vector<TimestepDiagnostics>& SimulationServer::timestepDiagnostics() const

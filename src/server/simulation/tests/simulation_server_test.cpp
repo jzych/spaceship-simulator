@@ -30,7 +30,8 @@ TEST_F(SimulationServerSmokeTest, GivenFreshServer_WhenTicked_ThenClockAdvances)
     server.tick();
 
     EXPECT_EQ(server.tickCount(), 1U);
-    EXPECT_TRUE(server.lastSnapshotSummary().empty());
+    // No snapshot has fired yet (interval = 3 ticks) — serverTick stays at default 0.
+    EXPECT_EQ(server.lastSnapshot().serverTick, 0U);
 }
 
 TEST_F(SimulationServerSmokeTest, GivenSpawnRequest_WhenShipSpawned_ThenShipAddedToWorld)
@@ -120,14 +121,14 @@ TEST_F(SimulationServerSmokeTest, GivenServerTickedAtInterval_WhenSnapshotInterv
 {
     // Default snapshotIntervalTicks = 3
     server.tick(); // tick 1
-    EXPECT_TRUE(server.lastSnapshotSummary().empty());
+    EXPECT_EQ(server.lastSnapshot().serverTick, 0U);  // snapshot not yet fired
 
     server.tick(); // tick 2
-    EXPECT_TRUE(server.lastSnapshotSummary().empty());
+    EXPECT_EQ(server.lastSnapshot().serverTick, 0U);
 
     server.tick(); // tick 3 — snapshot should fire
-    EXPECT_FALSE(server.lastSnapshotSummary().empty());
-    EXPECT_NE(server.lastSnapshotSummary().find("bodies=3"), std::string::npos);
+    EXPECT_EQ(server.lastSnapshot().serverTick, 3U);
+    EXPECT_EQ(server.lastSnapshot().massiveBodies.size(), 3U);
 }
 
 // ---------------------------------------------------------------------------

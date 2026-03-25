@@ -5,12 +5,12 @@
 namespace spaceship::client
 {
 
-void ClientSnapshotBuffer::push(SnapshotFrame frame)
+void ClientSnapshotBuffer::push(spaceship::server::WorldSnapshot snapshot)
 {
-    latest_ = std::move(frame);
+    latest_ = std::move(snapshot);
 }
 
-std::optional<SnapshotFrame> ClientSnapshotBuffer::latest() const
+const std::optional<spaceship::server::WorldSnapshot>& ClientSnapshotBuffer::latest() const
 {
     return latest_;
 }
