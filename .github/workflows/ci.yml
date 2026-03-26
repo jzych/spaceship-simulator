@@ -55,7 +55,14 @@ jobs:
 
       - name: Generate SonarCloud coverage report
         run: |
-          gcovr -r . build --sonarqube sonar-coverage.xml
+          gcovr \
+            -r . build \
+            --sonarqube sonar-coverage.xml \
+            --exclude-unreachable-branches \
+            --exclude-throw-branches \
+            --filter 'src/' \
+            --exclude 'src/.*/tests/.*' \
+            --exclude 'src/main\.cpp'
           test -s sonar-coverage.xml
 
       - name: Upload analysis artifacts
