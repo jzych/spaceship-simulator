@@ -76,9 +76,14 @@ std::optional<double> sphereSweepTOI(
     // spheres would separate again after passing through each other.
     const double timeOfImpact = (-approachRateB - std::sqrt(discriminant)) / (2.0 * relativeSpeedSqA);
 
-    if (timeOfImpact < 0.0 || timeOfImpact > dt)
+    // timeOfImpact >= 0 is guaranteed by the preceding guards:
+    //   - separationTermC > 0  (non-overlapping, checked at line 44)
+    //   - approachRateB < 0    (approaching, checked at line 60)
+    //   - discriminant >= 0    (trajectories intersect, checked at line 69)
+    // → (-approachRateB - sqrt(discriminant)) / (2a) ≥ 0, so only the upper bound matters.
+    if (timeOfImpact > dt)
     {
-        return std::nullopt;  // Contact occurs outside the simulation interval
+        return std::nullopt;  // Contact occurs after the simulation interval ends
     }
 
     return timeOfImpact;
