@@ -46,3 +46,37 @@ TEST(ClientSnapshotBufferTest, GivenTwoSnapshots_WhenBothPushed_ThenLatestReturn
     ASSERT_TRUE(buffer.latest().has_value());
     EXPECT_EQ(buffer.latest()->serverTick, 10U);
 }
+
+TEST(ClientSnapshotBufferTest, GivenPopulatedSnapshot_WhenPushed_ThenNestedPayloadPreserved)
+{
+    ClientSnapshotBuffer buffer;
+
+    WorldSnapshot snapshot;
+    snapshot.serverTick = 7U;
+    snapshot.ships.push_back({
+        .netId        = 100U,
+        .position     = {1.0, 2.0, 3.0},
+        .velocity     = {4.0, 5.0, 6.0},
+        .orientation  = {1.0, 0.0, 0.0, 0.0},
+        .radiusMeters = 12.5,
+        .throttle     = 0.5,
+    });
+    snapshot.collisionEvents.push_back({
+        .netIdA      = 100U,
+        .netIdB      = 10'000U,
+        .kindA       = spaceship::shared::EntityKind::Ship,
+        .kindB       = spaceship::shared::EntityKind::Projectile,
+        .toi         = 0.01,
+        .eRelJoules  = 250.0,
+        .outcome     = CollisionOutcome::ADespawned,
+    });
+
+    buffer.push(std::move(snapshot));
+
+    ASSERT_TRUE(buffer.latest().has_value());
+    ASSERT_EQ(buffer.latest()->ships.size(), 1U);
+    ASSERT_EQ(buffer.latest()->collisionEvents.size(), 1U);
+    EXPECT_EQ(buffer.latest()->ships[0].netId, 100U);
+    EXPECT_DOUBLE_EQ(buffer.latest()->ships[0].position.z, 3.0);
+    EXPECT_EQ(buffer.latest()->collisionEvents[0].outcome, CollisionOutcome::ADespawned);
+}
