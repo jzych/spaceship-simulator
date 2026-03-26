@@ -105,6 +105,33 @@ TEST_F(ReferenceBodySelectorTest, GivenShipInDeepSpace_WhenDwellTimeExceeded_The
     EXPECT_TRUE(switchOccurred);
 }
 
+TEST_F(ReferenceBodySelectorTest, GivenNoBodies_WhenSelectorUpdated_ThenReturnsDefaultSelection)
+{
+    std::vector<spaceship::server::MassiveBodyState> emptyBodies {};
+    spaceship::server::ReferenceBodySelector selector;
+
+    const spaceship::shared::Vec3 shipPos {kAU + 6.771e6, 0.0, 0.0};
+    const auto result = selector.update(shipPos, emptyBodies, config, 1.0 / 60.0);
+
+    // Empty span → early return with default-constructed selection (unchanged state)
+    EXPECT_EQ(result.bodyId, spaceship::shared::NetId {});
+    EXPECT_FALSE(result.changed);
+}
+
+TEST_F(ReferenceBodySelectorTest, GivenShipAtBodyPosition_WhenSelectorUpdated_ThenBodyAtZeroDistanceIgnored)
+{
+    // Ship placed exactly at Earth's position → Earth distance = 0 < 1 m (kMinDist guard)
+    // → Earth's gravitational contribution = 0.0 → Sun is the dominant body selected.
+    auto bodies = makeSunEarth();
+    spaceship::server::ReferenceBodySelector selector;
+
+    const spaceship::shared::Vec3 shipPos {kAU, 0.0, 0.0};  // Earth is at kAU on +x
+    const auto result = selector.update(shipPos, bodies, config, 1.0 / 60.0);
+
+    // Earth contributes 0 (distance < kMinDist), Sun dominates from kAU away
+    EXPECT_EQ(result.bodyId, kSunNetId);
+}
+
 TEST_F(ReferenceBodySelectorTest, GivenPartialDwellThenReturnToEarth_WhenMovedToDeepSpace_ThenFullDwellRequiredAgain)
 {
     auto bodies = makeSunEarth();

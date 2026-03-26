@@ -1,5 +1,6 @@
 #include "server/tests/test_helpers.hpp"
 
+#include "server/simulation/gravity/orbit_cache_system.hpp"
 #include "server/spawning/spawning_system.hpp"
 
 #include <numbers>
@@ -154,4 +155,53 @@ TEST_F(EarthOnlyCenteredTest, GivenShipInCircularLEO_WhenOneTick_ThenGeographicA
     server.tick();
 
     EXPECT_NEAR(server.world().ships.front().orbitCache.altitudeMeters, kLeoAltitude, 200.0);
+}
+
+// ---------------------------------------------------------------------------
+// Defensive guard: refBody == nullptr (stale reference body id)
+// ---------------------------------------------------------------------------
+
+TEST(OrbitCacheSystemTest,
+     GivenShipWithStaleReferenceBodyId_WhenOrbitCacheUpdated_ThenShipSkippedGracefully)
+{
+    // Initialise the ship's reference body selector with body id=99, then call
+    // OrbitCacheSystem::update with a different body (id=1). The selector returns
+    // the stale id=99 (within dwell time), findBody returns nullptr → ship is skipped.
+    using namespace spaceship::server;
+    using namespace spaceship::shared;
+
+    SimulationConfig config {};
+
+    // Body A — used only to seed the selector state.
+    MassiveBodyState bodyA {};
+    bodyA.definition.netId                          = 99U;
+    bodyA.definition.muMetersCubedPerSecondSquared  = 3.986e14;
+    bodyA.definition.radiusMeters                   = 6.371e6;
+    bodyA.transform.position                        = {1.5e11, 0.0, 0.0};
+
+    ShipState ship {};
+    ship.netId                 = 100U;
+    ship.transform.position    = {1.5e11 + 6.771e6, 0.0, 0.0};
+    ship.velocity.linear       = {0.0, 7600.0, 0.0};
+
+    // Seed the selector: it locks onto body id=99, initialized_=true.
+    (void)ship.referenceBodySelector.update(
+        ship.transform.position, std::span{&bodyA, 1}, config, 1.0 / 60.0);
+
+    // Body B — the only body now visible to the orbit cache system.
+    MassiveBodyState bodyB {};
+    bodyB.definition.netId                         = 1U;
+    bodyB.definition.muMetersCubedPerSecondSquared = 3.986e14;
+    bodyB.definition.radiusMeters                  = 6.371e6;
+    bodyB.transform.position                       = {1.5e11, 0.0, 0.0};
+
+    // Within the dwell time, the selector still returns id=99 (not id=1).
+    // findBody(bodies_with_only_id_1, 99) → nullptr → ship skipped → orbitCache unchanged.
+    std::vector<ShipState> ships = {ship};
+    OrbitCacheSystem system;
+    EXPECT_NO_FATAL_FAILURE(
+        system.update(ships, std::span{&bodyB, 1}, /*currentTick=*/1U, config));
+
+    // Cache epoch was never updated because the ship was skipped.
+    EXPECT_EQ(ships.front().orbitCache.epoch, 0U);
 }

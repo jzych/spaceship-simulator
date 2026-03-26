@@ -47,6 +47,7 @@ add_library(spaceship-server
     src/server/simulation/timestep/timestep_types.hpp
     src/server/snapshot/snapshot_system.cpp
     src/server/snapshot/snapshot_system.hpp
+    src/server/snapshot/snapshot_types.hpp
     src/server/spawning/spawning_system.cpp
     src/server/spawning/spawning_system.hpp
 )
@@ -66,6 +67,7 @@ target_link_libraries(spaceship-simulator PRIVATE spaceship-server spaceship-cli
 if(BUILD_TESTING)
     # Expose test-only API (e.g. SimulationServer::injectProjectile) in the server library.
     target_compile_definitions(spaceship-server PRIVATE BUILD_TESTING)
+    target_compile_definitions(spaceship-client-stub PRIVATE BUILD_TESTING)
 
     include(FetchContent)
 
@@ -78,6 +80,7 @@ if(BUILD_TESTING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(spaceship-simulator-tests
+        src/client/tests/client_snapshot_buffer_test.cpp
         src/server/collision/tests/broad_phase_test.cpp
         src/server/collision/tests/collision_pipeline_test.cpp
         src/server/collision/tests/collision_system_test.cpp
@@ -112,6 +115,7 @@ if(BUILD_TESTING)
         PRIVATE
             GTest::gtest_main
             spaceship-server
+            spaceship-client-stub
     )
 
     include(GoogleTest)

@@ -1,29 +1,22 @@
 #pragma once
 
-// Stores the latest authoritative snapshot summary for future client-side interpolation.
+// Stores the latest authoritative snapshot for client-side interpolation.
 
-#include "shared/sim_types.hpp"
+#include "server/snapshot/snapshot_types.hpp"
 
 #include <optional>
-#include <string>
 
 namespace spaceship::client
 {
 
-struct SnapshotFrame
-{
-    shared::Tick serverTick {};
-    std::string summary {};
-};
-
 class ClientSnapshotBuffer
 {
   public:
-    void push(SnapshotFrame frame);
-    [[nodiscard]] std::optional<SnapshotFrame> latest() const;
+    void push(spaceship::server::WorldSnapshot snapshot);
+    [[nodiscard]] const std::optional<spaceship::server::WorldSnapshot>& latest() const;
 
   private:
-    std::optional<SnapshotFrame> latest_ {};
+    std::optional<spaceship::server::WorldSnapshot> latest_ {};
 };
 
 } // namespace spaceship::client

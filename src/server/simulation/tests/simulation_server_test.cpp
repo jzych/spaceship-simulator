@@ -30,7 +30,8 @@ TEST_F(SimulationServerSmokeTest, GivenFreshServer_WhenTicked_ThenClockAdvances)
     server.tick();
 
     EXPECT_EQ(server.tickCount(), 1U);
-    EXPECT_TRUE(server.lastSnapshotSummary().empty());
+    // No snapshot has fired yet (interval = 3 ticks) — serverTick stays at default 0.
+    EXPECT_EQ(server.lastSnapshot().serverTick, 0U);
 }
 
 TEST_F(SimulationServerSmokeTest, GivenSpawnRequest_WhenShipSpawned_ThenShipAddedToWorld)
@@ -120,14 +121,103 @@ TEST_F(SimulationServerSmokeTest, GivenServerTickedAtInterval_WhenSnapshotInterv
 {
     // Default snapshotIntervalTicks = 3
     server.tick(); // tick 1
-    EXPECT_TRUE(server.lastSnapshotSummary().empty());
+    EXPECT_EQ(server.lastSnapshot().serverTick, 0U);  // snapshot not yet fired
 
     server.tick(); // tick 2
-    EXPECT_TRUE(server.lastSnapshotSummary().empty());
+    EXPECT_EQ(server.lastSnapshot().serverTick, 0U);
 
     server.tick(); // tick 3 — snapshot should fire
-    EXPECT_FALSE(server.lastSnapshotSummary().empty());
-    EXPECT_NE(server.lastSnapshotSummary().find("bodies=3"), std::string::npos);
+    EXPECT_EQ(server.lastSnapshot().serverTick, 3U);
+    EXPECT_EQ(server.lastSnapshot().massiveBodies.size(), 3U);
+}
+
+TEST(SimulationServerSnapshotTest, GivenSnapshotEveryTick_WhenFixedStepServerTicked_ThenSnapshotTimeMatchesWorldState)
+{
+    spaceship::server::SimulationConfig cfg;
+    cfg.snapshotIntervalTicks = 1U;
+
+    spaceship::server::SimulationServer srv {cfg};
+    const double initialEarthY = srv.world().massiveBodies[1].transform.position.y;
+
+    srv.tick();
+
+    const auto& snapshot = srv.lastSnapshot();
+    ASSERT_EQ(snapshot.serverTick, 1U);
+    ASSERT_EQ(snapshot.massiveBodies.size(), 3U);
+    EXPECT_DOUBLE_EQ(snapshot.elapsedSeconds, cfg.fixedDeltaSeconds);
+    EXPECT_GT(snapshot.massiveBodies[1].position.y, initialEarthY);
+    EXPECT_DOUBLE_EQ(snapshot.massiveBodies[1].position.y, srv.world().massiveBodies[1].transform.position.y);
+}
+
+TEST(SimulationServerSnapshotTest, GivenSnapshotDisabled_WhenServerTicked_ThenLastSnapshotRemainsUnset)
+{
+    spaceship::server::SimulationConfig cfg;
+    cfg.snapshotIntervalTicks = 0U;
+
+    spaceship::server::SimulationServer srv {cfg};
+
+    srv.tick();
+    srv.tick();
+
+    EXPECT_EQ(srv.tickCount(), 2U);
+    EXPECT_EQ(srv.lastSnapshot().serverTick, 0U);
+    EXPECT_TRUE(srv.lastSnapshot().massiveBodies.empty());
+    EXPECT_TRUE(srv.lastSnapshot().ships.empty());
+    EXPECT_TRUE(srv.lastSnapshot().projectiles.empty());
+}
+
+TEST(SimulationServerSnapshotTest, GivenAdaptiveTimestep_WhenSnapshotIntervalReached_ThenSnapshotCaptured)
+{
+    spaceship::server::SimulationConfig cfg;
+    cfg.useAdaptiveTimestep   = true;
+    cfg.snapshotIntervalTicks = 1U;
+
+    spaceship::server::SimulationServer srv {cfg};
+    const double initialEarthY = srv.world().massiveBodies[1].transform.position.y;
+
+    srv.tick();
+
+    const auto& snapshot = srv.lastSnapshot();
+    ASSERT_EQ(snapshot.serverTick, 1U);
+    ASSERT_EQ(snapshot.massiveBodies.size(), 3U);
+    EXPECT_DOUBLE_EQ(snapshot.elapsedSeconds, cfg.fixedDeltaSeconds);
+    EXPECT_GT(snapshot.massiveBodies[1].position.y, initialEarthY);
+    EXPECT_DOUBLE_EQ(snapshot.massiveBodies[1].position.y, srv.world().massiveBodies[1].transform.position.y);
+}
+
+TEST(SimulationServerSnapshotTest, GivenAdaptiveProjectile_WhenTicked_ThenProjectileSnapshotAndDiagnosticsCaptured)
+{
+    spaceship::server::SimulationConfig cfg;
+    cfg.useAdaptiveTimestep   = true;
+    cfg.snapshotIntervalTicks = 1U;
+
+    spaceship::server::SimulationServer srv {spaceship::server::SimulationWorld {}, cfg};
+
+    spaceship::server::ProjectileState projectile;
+    projectile.netId                 = 10'000U;
+    projectile.transform.position    = {10.0, 0.0, 0.0};
+    projectile.velocity.linear       = {0.0, 50.0, 0.0};
+    projectile.collider.radiusMeters = cfg.projectileRadiusMeters;
+    projectile.massProperties        = {cfg.projectileMassKg, 1.0 / cfg.projectileMassKg};
+    projectile.params                = {10.0, 42U};
+    srv.injectProjectile(projectile);
+
+    srv.tick();
+
+    const auto& snapshot = srv.lastSnapshot();
+    ASSERT_EQ(snapshot.serverTick, 1U);
+    ASSERT_EQ(snapshot.projectiles.size(), 1U);
+    EXPECT_EQ(snapshot.projectiles[0].netId, projectile.netId);
+    EXPECT_EQ(snapshot.projectiles[0].ownerNetId, projectile.params.ownerNetId);
+
+    const auto& diagnostics = srv.timestepDiagnostics();
+    ASSERT_EQ(diagnostics.size(), 1U);
+    EXPECT_EQ(diagnostics[0].netId, projectile.netId);
+    EXPECT_GT(diagnostics[0].dtApplied, 0.0);
+    EXPECT_GE(diagnostics[0].substepCount, 1);
+
+    ASSERT_EQ(srv.world().projectiles.size(), 1U);
+    EXPECT_DOUBLE_EQ(srv.world().projectiles[0].timestepState.dtPrev, diagnostics[0].dtApplied);
 }
 
 // ---------------------------------------------------------------------------

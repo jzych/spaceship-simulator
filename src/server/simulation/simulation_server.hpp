@@ -7,11 +7,11 @@
 #include "server/simulation/simulation_config.hpp"
 #include "server/simulation/simulation_world.hpp"
 #include "server/simulation/timestep/timestep_types.hpp"
+#include "server/snapshot/snapshot_types.hpp"
 
 #include <memory>
 #include <optional>
 #include <functional>
-#include <string>
 #include <vector>
 
 namespace spaceship::server
@@ -34,7 +34,7 @@ class SimulationServer
 
     [[nodiscard]] shared::Tick tickCount() const;
     [[nodiscard]] const SimulationWorld& world() const;
-    [[nodiscard]] const std::string& lastSnapshotSummary() const;
+    [[nodiscard]] const WorldSnapshot& lastSnapshot() const;
     [[nodiscard]] const std::vector<TimestepDiagnostics>& timestepDiagnostics() const;
 
 #ifdef BUILD_TESTING

@@ -300,6 +300,41 @@ TEST(CollisionPipelineTest,
 }
 
 TEST(CollisionPipelineTest,
+     GivenHigherIdEntityDestroyedInFirstHit_WhenLaterHitInvolvesSameHigherIdAsSecond_ThenHitSkipped)
+{
+    // Three projectiles on the x-axis:
+    //   pA (10000): x=+0.15, stationary — overlaps pB (dist=0.15 < combined radius 0.2) → toi=0
+    //   pB (10005): x= 0.00, stationary
+    //   pC (10003): x=-3.00, vel=+200 m/s — approaches pB then pA from the left
+    //
+    // Sorted hit order: (toi, pairIdLow, pairIdHigh)
+    //   1. pA-pB:  (0.0000, 10000, 10005) → E_rel=0 J < 1000 J → BDespawned (pB=10005 destroyed)
+    //   2. pC-pB:  (0.0140, 10003, 10005) → contains(pairIdLow=10003)=FALSE,
+    //                                        contains(pairIdHigh=10005)=TRUE  → SKIP  ← covers second OR
+    //   3. pC-pA:  (0.0148, 10000, 10003) → not in destroyed → E_rel=10000 J → BothDespawned
+    //
+    // Exactly 2 events (not 3) confirms pC-pB was skipped.
+    auto pA = makeProjectile(10000, {0.15, 0.0, 0.0}, {0.0,   0.0, 0.0});
+    auto pB = makeProjectile(10005, {0.00, 0.0, 0.0}, {0.0,   0.0, 0.0});
+    auto pC = makeProjectile(10003, {-3.0, 0.0, 0.0}, {200.0, 0.0, 0.0});
+
+    std::vector<ShipState> ships;
+    std::vector<ProjectileState> projectiles = {pA, pB, pC};
+    std::vector<CollisionEvent> events;
+    SimulationConfig config;  // default threshold = 1000 J
+
+    CollisionSystem system;
+    system.detectAndResolve(ships, projectiles, {}, events, config, 1.0 / 60.0);
+
+    // All three destroyed: pB by hit 1, pA and pC by hit 3.
+    EXPECT_TRUE(projectiles.empty());
+    // Two events — pC-pB skipped because pairIdHigh (pB=10005) was already destroyed.
+    ASSERT_EQ(events.size(), 2U);
+    EXPECT_EQ(events[0].outcome, CollisionOutcome::BDespawned);    // pA-pB: only pB
+    EXPECT_EQ(events[1].outcome, CollisionOutcome::BothDespawned); // pC-pA: high energy
+}
+
+TEST(CollisionPipelineTest,
      GivenTwoShipsLowEnergyCollision_WhenDetectAndResolve_ThenOneShipSurvivesWithVcm)
 {
     // Ship A (1000 kg) at x=0, stationary.
