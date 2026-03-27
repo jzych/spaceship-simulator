@@ -57,9 +57,15 @@ target_link_libraries(spaceship-server PUBLIC spaceship-shared)
 add_library(spaceship-client-stub
     src/client/client_snapshot_buffer.cpp
     src/client/client_snapshot_buffer.hpp
+    src/client/client_types.hpp
+    src/client/snapshot_interpolator.cpp
+    src/client/snapshot_interpolator.hpp
 )
 target_include_directories(spaceship-client-stub PUBLIC src)
-target_link_libraries(spaceship-client-stub PUBLIC spaceship-shared)
+target_link_libraries(spaceship-client-stub
+    PUBLIC  spaceship-shared
+    PRIVATE spaceship-server
+)
 
 add_executable(spaceship-simulator src/main.cpp)
 target_link_libraries(spaceship-simulator PRIVATE spaceship-server spaceship-client-stub)
@@ -81,6 +87,7 @@ if(BUILD_TESTING)
 
     add_executable(spaceship-simulator-tests
         src/client/tests/client_snapshot_buffer_test.cpp
+        src/client/tests/snapshot_interpolator_test.cpp
         src/server/collision/tests/broad_phase_test.cpp
         src/server/collision/tests/collision_pipeline_test.cpp
         src/server/collision/tests/collision_system_test.cpp
