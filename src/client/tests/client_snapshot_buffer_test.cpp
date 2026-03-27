@@ -262,3 +262,18 @@ TEST(ClientSnapshotBufferTest, GivenTwoSnapshots_WhenInterpolateAtMidpoint_ThenR
     ASSERT_TRUE(result.has_value());
     EXPECT_DOUBLE_EQ(result->renderTime, 1.0);
 }
+
+TEST(ClientSnapshotBufferTest, GivenFourSnapshots_WhenInterpolateBetweenMiddleTimes_ThenCorrectPairIsChosen)
+{
+    ClientSnapshotBuffer buffer;
+    buffer.push(makeSnap(1, 0.0, {0.0, 0.0, 0.0}));
+    buffer.push(makeSnap(2, 1.0, {10.0, 0.0, 0.0}));
+    buffer.push(makeSnap(3, 2.0, {20.0, 0.0, 0.0}));
+    buffer.push(makeSnap(4, 3.0, {30.0, 0.0, 0.0}));
+
+    const auto result = buffer.interpolate(1.5);
+
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->ships.size(), 1u);
+    EXPECT_DOUBLE_EQ(result->ships[0].position.x, 15.0);
+}

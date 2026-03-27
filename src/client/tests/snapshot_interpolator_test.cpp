@@ -42,6 +42,27 @@ static server::WorldSnapshot makeSnapshot(double elapsedSeconds,
     return snap;
 }
 
+static server::MassiveBodySnapshot makeBody(shared::NetId id, double px)
+{
+    server::MassiveBodySnapshot body;
+    body.netId        = id;
+    body.position     = {px, 0.0, 0.0};
+    body.velocity     = {px / 10.0, 0.0, 0.0};
+    body.radiusMeters = 1000.0 + px;
+    return body;
+}
+
+static server::ProjectileSnapshot makeProjectile(shared::NetId id, double px)
+{
+    server::ProjectileSnapshot projectile;
+    projectile.netId        = id;
+    projectile.position     = {px, 1.0, 2.0};
+    projectile.velocity     = {px / 5.0, 0.0, 0.0};
+    projectile.radiusMeters = 0.5 + px;
+    projectile.ownerNetId   = 42U;
+    return projectile;
+}
+
 // ---------------------------------------------------------------------------
 // lerp — scalar
 // ---------------------------------------------------------------------------
@@ -140,6 +161,19 @@ TEST(SnapshotInterpolatorTest, GivenQuaternionAtT1_WhenSlerpAtOne_ThenReturnsQ1)
     EXPECT_NEAR(result.z, q1.z, 1e-12);
 }
 
+TEST(SnapshotInterpolatorTest, GivenDegenerateQuaternions_WhenSlerped_ThenFirstQuaternionIsRetained)
+{
+    const shared::Quaternion q0{};
+    const shared::Quaternion q1{};
+
+    const auto result = slerp(q0, q1, 0.5);
+
+    EXPECT_DOUBLE_EQ(result.w, q0.w);
+    EXPECT_DOUBLE_EQ(result.x, q0.x);
+    EXPECT_DOUBLE_EQ(result.y, q0.y);
+    EXPECT_DOUBLE_EQ(result.z, q0.z);
+}
+
 // ---------------------------------------------------------------------------
 // interpolateWorldState
 // ---------------------------------------------------------------------------
@@ -192,6 +226,80 @@ TEST(SnapshotInterpolatorTest, GivenEntityOnlyInS0_WhenInterpolated_ThenEntityIs
     const auto result = interpolateWorldState(s0, s1, 0.5);
 
     EXPECT_EQ(result.ships.size(), 0u);
+}
+
+TEST(SnapshotInterpolatorTest, GivenMassiveBodyAndProjectileInBothSnapshots_WhenInterpolated_ThenTheirFieldsAreInterpolated)
+{
+    server::WorldSnapshot s0;
+    s0.elapsedSeconds = 0.0;
+    s0.massiveBodies.push_back(makeBody(1U, 0.0));
+    s0.projectiles.push_back(makeProjectile(10'000U, 0.0));
+
+    server::WorldSnapshot s1;
+    s1.elapsedSeconds = 2.0;
+    s1.massiveBodies.push_back(makeBody(1U, 20.0));
+    s1.projectiles.push_back(makeProjectile(10'000U, 10.0));
+
+    const auto result = interpolateWorldState(s0, s1, 1.0);
+
+    ASSERT_EQ(result.massiveBodies.size(), 1u);
+    EXPECT_DOUBLE_EQ(result.massiveBodies[0].position.x, 10.0);
+    EXPECT_DOUBLE_EQ(result.massiveBodies[0].velocity.x, 1.0);
+
+    ASSERT_EQ(result.projectiles.size(), 1u);
+    EXPECT_DOUBLE_EQ(result.projectiles[0].position.x, 5.0);
+    EXPECT_DOUBLE_EQ(result.projectiles[0].velocity.x, 1.0);
+}
+
+TEST(SnapshotInterpolatorTest, GivenRenderTimeBeforeFirstSnapshot_WhenInterpolated_ThenFirstSnapshotStateIsReturned)
+{
+    const auto s0 = makeSnapshot(1.0, {10.0, 0.0, 0.0});
+    const auto s1 = makeSnapshot(3.0, {30.0, 0.0, 0.0});
+
+    const auto result = interpolateWorldState(s0, s1, 0.0);
+
+    ASSERT_EQ(result.ships.size(), 1u);
+    EXPECT_DOUBLE_EQ(result.ships[0].position.x, 10.0);
+}
+
+TEST(SnapshotInterpolatorTest, GivenRenderTimeAfterSecondSnapshot_WhenInterpolated_ThenSecondSnapshotStateIsReturned)
+{
+    const auto s0 = makeSnapshot(1.0, {10.0, 0.0, 0.0});
+    const auto s1 = makeSnapshot(3.0, {30.0, 0.0, 0.0});
+
+    const auto result = interpolateWorldState(s0, s1, 10.0);
+
+    ASSERT_EQ(result.ships.size(), 1u);
+    EXPECT_DOUBLE_EQ(result.ships[0].position.x, 30.0);
+}
+
+TEST(SnapshotInterpolatorTest, GivenEqualSnapshotTimes_WhenInterpolated_ThenFirstSnapshotStateIsUsedForMatchedEntities)
+{
+    const auto s0 = makeSnapshot(1.0, {10.0, 0.0, 0.0});
+    const auto s1 = makeSnapshot(1.0, {30.0, 0.0, 0.0});
+
+    const auto result = interpolateWorldState(s0, s1, 1.0);
+
+    ASSERT_EQ(result.ships.size(), 1u);
+    EXPECT_DOUBLE_EQ(result.ships[0].position.x, 10.0);
+}
+
+TEST(SnapshotInterpolatorTest, GivenSingleSnapshotWithBodiesAndProjectiles_WhenLifted_ThenAllEntityKindsAreCopied)
+{
+    server::WorldSnapshot snap;
+    snap.elapsedSeconds = 4.0;
+    snap.massiveBodies.push_back(makeBody(1U, 5.0));
+    snap.ships.push_back(makeSnapshot(4.0, {7.0, 8.0, 9.0}).ships[0]);
+    snap.projectiles.push_back(makeProjectile(10'000U, 3.0));
+
+    const auto result = fromSnapshot(snap, 4.0);
+
+    ASSERT_EQ(result.massiveBodies.size(), 1u);
+    ASSERT_EQ(result.ships.size(), 1u);
+    ASSERT_EQ(result.projectiles.size(), 1u);
+    EXPECT_DOUBLE_EQ(result.massiveBodies[0].position.x, 5.0);
+    EXPECT_DOUBLE_EQ(result.ships[0].position.y, 8.0);
+    EXPECT_DOUBLE_EQ(result.projectiles[0].position.x, 3.0);
 }
 
 } // namespace spaceship::client::interpolator
