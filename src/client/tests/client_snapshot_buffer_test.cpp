@@ -113,6 +113,11 @@ TEST(ClientSnapshotBufferTest, GivenNewBuffer_WhenSizeQueried_ThenZero)
     EXPECT_TRUE(buffer.empty());
 }
 
+TEST(ClientSnapshotBufferTest, GivenZeroCapacity_WhenConstructed_ThenAssertFires)
+{
+    EXPECT_DEBUG_DEATH(ClientSnapshotBuffer{0}, ".*capacity.*");
+}
+
 TEST(ClientSnapshotBufferTest, GivenFullBuffer_WhenPushNewSnapshot_ThenOldestIsDiscarded)
 {
     ClientSnapshotBuffer buffer{4};   // tiny capacity for testing

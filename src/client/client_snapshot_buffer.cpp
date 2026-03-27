@@ -2,6 +2,7 @@
 #include "client/snapshot_interpolator.hpp"
 
 #include <cassert>
+#include <utility>
 
 namespace spaceship::client
 {
