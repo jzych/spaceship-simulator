@@ -134,3 +134,26 @@ TEST_F(SpawningSystemTest, GivenDefaultConfig_WhenProjectileSpawned_ThenTtlFromC
 
     EXPECT_DOUBLE_EQ(projectiles[0].params.ttlSeconds, config.projectileDefaultTtlSeconds);
 }
+
+TEST_F(SpawningSystemTest, GivenEmptyWorld_WhenShipSpawned_ThenAccelerationIsZero)
+{
+    ShipSpawnRequest request {};
+    (void)system.spawnShip(ships, request, config, massiveBodies);
+
+    ASSERT_EQ(ships.size(), 1U);
+    EXPECT_DOUBLE_EQ(ships[0].acceleration.x, 0.0);
+    EXPECT_DOUBLE_EQ(ships[0].acceleration.y, 0.0);
+    EXPECT_DOUBLE_EQ(ships[0].acceleration.z, 0.0);
+}
+
+TEST_F(SpawningSystemTest, GivenEmptyWorld_WhenProjectileSpawned_ThenAccelerationIsZero)
+{
+    ShipSpawnRequest request {};
+    (void)system.spawnShip(ships, request, config, massiveBodies);
+    (void)system.spawnProjectile(projectiles, ships[0], config, massiveBodies);
+
+    ASSERT_EQ(projectiles.size(), 1U);
+    EXPECT_DOUBLE_EQ(projectiles[0].acceleration.x, 0.0);
+    EXPECT_DOUBLE_EQ(projectiles[0].acceleration.y, 0.0);
+    EXPECT_DOUBLE_EQ(projectiles[0].acceleration.z, 0.0);
+}

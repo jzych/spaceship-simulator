@@ -50,6 +50,7 @@ sonar-findings.md
 
 # custom directory
 /.ignore
+/tasks
 
 # Claude Code
 .claude/

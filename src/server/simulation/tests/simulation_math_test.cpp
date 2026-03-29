@@ -6,7 +6,8 @@
 #include <numbers>
 
 // ---------------------------------------------------------------------------
-// SimulationMathTest — vector arithmetic, cross, normalize, negate, projectOntoPlane
+// SimulationMathTest — vector arithmetic, cross, normalize, negate, projectOntoPlane,
+//                      bodySpinAngle, toBodyFixedGeographic, conjugate
 // ---------------------------------------------------------------------------
 
 TEST(SimulationMathTest, GivenTwoVectors_WhenSubtracted_ThenComponentWiseDifference)
@@ -58,39 +59,6 @@ TEST(SimulationMathTest, GivenZeroVector_WhenLengthComputed_ThenResultIsZero)
 {
     const spaceship::shared::Vec3 zero {0.0, 0.0, 0.0};
     EXPECT_DOUBLE_EQ(spaceship::server::length(zero), 0.0);
-}
-
-TEST(SimulationMathTest, GivenShipInEmptyWorld_WhenSpawned_ThenAccelerationIsZero)
-{
-    spaceship::server::SimulationServer server {spaceship::server::SimulationWorld {}};
-    const spaceship::server::ShipSpawnRequest request {
-        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
-        {{0.0, 0.0, 0.0}},
-    };
-    server.spawnShip(request);
-
-    const auto& ship = server.world().ships.front();
-    EXPECT_DOUBLE_EQ(ship.acceleration.x, 0.0);
-    EXPECT_DOUBLE_EQ(ship.acceleration.y, 0.0);
-    EXPECT_DOUBLE_EQ(ship.acceleration.z, 0.0);
-}
-
-TEST(SimulationMathTest, GivenProjectileInEmptyWorld_WhenSpawned_ThenAccelerationIsZero)
-{
-    spaceship::server::SimulationServer server {spaceship::server::SimulationWorld {}};
-    const spaceship::server::ShipSpawnRequest request {
-        {{0.0, 0.0, 0.0}, {1.0, 0.0, 0.0, 0.0}},
-        {{0.0, 0.0, 0.0}},
-    };
-    const auto shipNetId = server.spawnShip(request);
-    server.updateShipControl(shipNetId, spaceship::shared::ShipControl {0.0, {1.0, 0.0, 0.0, 0.0}, true});
-    server.tick();
-
-    ASSERT_EQ(server.world().projectiles.size(), 1U);
-    const auto& projectile = server.world().projectiles.front();
-    EXPECT_DOUBLE_EQ(projectile.acceleration.x, 0.0);
-    EXPECT_DOUBLE_EQ(projectile.acceleration.y, 0.0);
-    EXPECT_DOUBLE_EQ(projectile.acceleration.z, 0.0);
 }
 
 TEST(SimulationMathTest, GivenXAndYBasisVectors_WhenCrossed_ThenResultIsZ)
@@ -198,10 +166,89 @@ TEST(SimulationMathTest, GivenIdentityQuaternion_WhenForwardDirectionComputed_Th
 
 TEST(SimulationMathTest, GivenQuaternion_WhenConjugated_ThenImaginaryComponentsNegated)
 {
+    // Non-unit quaternion is intentional: conjugate is defined for all quaternions,
+    // and this verifies the sign-flip contract without masking errors via normalization.
     const spaceship::shared::Quaternion q {1.0, 2.0, 3.0, 4.0};
     const auto c = spaceship::server::conjugate(q);
     EXPECT_DOUBLE_EQ(c.w, 1.0);
     EXPECT_DOUBLE_EQ(c.x, -2.0);
     EXPECT_DOUBLE_EQ(c.y, -3.0);
     EXPECT_DOUBLE_EQ(c.z, -4.0);
+}
+
+// ---------------------------------------------------------------------------
+// bodySpinAngle
+// ---------------------------------------------------------------------------
+
+TEST(SimulationMathTest, GivenPositivePeriodAndZeroPhase_WhenHalfPeriodElapsed_ThenAngleIsPi)
+{
+    constexpr double periodSeconds = 10.0;
+    constexpr double initialPhase  = 0.0;
+    constexpr double elapsed       = 5.0; // half period
+
+    const double angle = spaceship::server::bodySpinAngle(periodSeconds, initialPhase, elapsed);
+
+    EXPECT_NEAR(angle, std::numbers::pi, 1e-12);
+}
+
+TEST(SimulationMathTest, GivenNonZeroInitialPhase_WhenNoTimeElapsed_ThenAngleIsInitialPhase)
+{
+    constexpr double initialPhase = 1.23;
+
+    const double angle = spaceship::server::bodySpinAngle(100.0, initialPhase, 0.0);
+
+    EXPECT_DOUBLE_EQ(angle, initialPhase);
+}
+
+TEST(SimulationMathTest, GivenZeroPeriod_WhenTimeElapsed_ThenAngleIsInitialPhase)
+{
+    // Guard: non-positive period returns initialPhase unchanged (no division by zero).
+    constexpr double initialPhase = 0.5;
+
+    const double angle = spaceship::server::bodySpinAngle(0.0, initialPhase, 999.0);
+
+    EXPECT_DOUBLE_EQ(angle, initialPhase);
+}
+
+// ---------------------------------------------------------------------------
+// toBodyFixedGeographic
+// ---------------------------------------------------------------------------
+
+TEST(SimulationMathTest, GivenPointOnXAxisWithZeroSpin_WhenTransformed_ThenLongitudeIsZero)
+{
+    // With spinAngle = 0 the body-fixed and inertial frames coincide.
+    // A point on the +X axis should map to longitude = 0, latitude = 0.
+    const spaceship::shared::Vec3 relativePosition {1000.0, 0.0, 0.0};
+    constexpr double bodyRadius = 500.0;
+
+    const auto geo = spaceship::server::toBodyFixedGeographic(relativePosition, bodyRadius, 0.0);
+
+    EXPECT_NEAR(geo.longitudeRadians, 0.0,   1e-12);
+    EXPECT_NEAR(geo.latitudeRadians,  0.0,   1e-12);
+    EXPECT_NEAR(geo.altitudeMeters,   500.0, 1e-9);
+}
+
+TEST(SimulationMathTest, GivenPointOnYAxis_WhenTransformed_ThenLatitudeIsHalfPi)
+{
+    // A point directly above the north pole (+Y) should have latitude = π/2.
+    const spaceship::shared::Vec3 relativePosition {0.0, 1000.0, 0.0};
+    constexpr double bodyRadius = 500.0;
+
+    const auto geo = spaceship::server::toBodyFixedGeographic(relativePosition, bodyRadius, 0.0);
+
+    EXPECT_NEAR(geo.latitudeRadians, std::numbers::pi / 2.0, 1e-12);
+    EXPECT_NEAR(geo.altitudeMeters, 500.0, 1e-9);
+}
+
+TEST(SimulationMathTest, GivenPointBelowMinRadius_WhenTransformed_ThenOnlyAltitudeIsSet)
+{
+    // Position closer to origin than kMinRadius: longitude and latitude remain zero-initialised.
+    const spaceship::shared::Vec3 relativePosition {0.5, 0.0, 0.0};
+    constexpr double bodyRadius = 0.0;
+
+    const auto geo = spaceship::server::toBodyFixedGeographic(relativePosition, bodyRadius, 0.0);
+
+    EXPECT_NEAR(geo.altitudeMeters,    0.5, 1e-9);
+    EXPECT_DOUBLE_EQ(geo.longitudeRadians, 0.0);
+    EXPECT_DOUBLE_EQ(geo.latitudeRadians,  0.0);
 }

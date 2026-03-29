@@ -49,4 +49,9 @@ struct InterpolatedWorldState
     std::vector<InterpolatedProjectileState>  projectiles   {};
 };
 
+// Default interpolation delay used to compute render time from current clock:
+//   renderServerTime = now + clockOffset - kDefaultInterpolationDelaySeconds
+// See game_compedium.md § "Tick rates and time model".
+constexpr double kDefaultInterpolationDelaySeconds = 0.1;
+
 } // namespace spaceship::client

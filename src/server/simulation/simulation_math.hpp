@@ -94,13 +94,13 @@ inline GeographicCoordinates toBodyFixedGeographic(
     double spinAngle) noexcept
 {
     const double r = length(relativePosition);
-    const double cosTheta = std::cos(spinAngle);
-    const double sinTheta = std::sin(spinAngle);
+    const double cosSpinAngle = std::cos(spinAngle);
+    const double sinSpinAngle = std::sin(spinAngle);
 
     // Rotate by -spinAngle around Y-axis to get body-fixed position
-    const double xBf = relativePosition.x * cosTheta + relativePosition.z * sinTheta;
-    const double yBf = relativePosition.y;
-    const double zBf = -relativePosition.x * sinTheta + relativePosition.z * cosTheta;
+    const double bodyFixedX = relativePosition.x * cosSpinAngle + relativePosition.z * sinSpinAngle;
+    const double bodyFixedY = relativePosition.y;
+    const double bodyFixedZ = -relativePosition.x * sinSpinAngle + relativePosition.z * cosSpinAngle;
 
     GeographicCoordinates geo {};
     geo.altitudeMeters = r - bodyRadius;
@@ -109,8 +109,8 @@ inline GeographicCoordinates toBodyFixedGeographic(
     if (r < kMinRadius)
         return geo;
 
-    geo.longitudeRadians = std::atan2(zBf, xBf);
-    geo.latitudeRadians = std::asin(yBf / r);
+    geo.longitudeRadians = std::atan2(bodyFixedZ, bodyFixedX);
+    geo.latitudeRadians = std::asin(bodyFixedY / r);
 
     return geo;
 }

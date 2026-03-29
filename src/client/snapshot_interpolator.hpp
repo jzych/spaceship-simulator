@@ -21,24 +21,24 @@ namespace spaceship::client::interpolator
 {
 
 // Scalar and vector lerp.
-double       lerp(double a, double b, double t);
-shared::Vec3 lerp(const shared::Vec3& a, const shared::Vec3& b, double t);
+[[nodiscard]] double       lerp(double a, double b, double t);
+[[nodiscard]] shared::Vec3 lerp(const shared::Vec3& a, const shared::Vec3& b, double t);
 
 // Quaternion slerp — always takes the short arc, result is unit-normalised.
-shared::Quaternion slerp(const shared::Quaternion& q0,
-                         const shared::Quaternion& q1,
-                         double                    t);
+[[nodiscard]] shared::Quaternion slerp(const shared::Quaternion& q0,
+                                       const shared::Quaternion& q1,
+                                       double                    t);
 
 // Build an InterpolatedWorldState from two bracketing snapshots.
 // renderTime must lie within [s0.elapsedSeconds, s1.elapsedSeconds];
 // alpha = (renderTime - s0.elapsedSeconds) / (s1.elapsedSeconds - s0.elapsedSeconds).
-InterpolatedWorldState interpolateWorldState(const server::WorldSnapshot& s0,
-                                             const server::WorldSnapshot& s1,
-                                             double                       renderTime);
+[[nodiscard]] InterpolatedWorldState interpolateWorldState(const server::WorldSnapshot& s0,
+                                                           const server::WorldSnapshot& s1,
+                                                           double                       renderTime);
 
 // Lift a single snapshot directly into an InterpolatedWorldState (alpha = 0).
 // Used when only one snapshot is available (renderTime == snapshot time).
-InterpolatedWorldState fromSnapshot(const server::WorldSnapshot& snap,
-                                    double                       renderTime);
+[[nodiscard]] InterpolatedWorldState fromSnapshot(const server::WorldSnapshot& snap,
+                                                  double                       renderTime);
 
 } // namespace spaceship::client::interpolator
