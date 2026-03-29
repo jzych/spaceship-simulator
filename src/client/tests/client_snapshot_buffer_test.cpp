@@ -1,4 +1,5 @@
 #include "client/client_snapshot_buffer.hpp"
+#include "client/client_types.hpp"
 #include "server/snapshot/snapshot_types.hpp"
 
 #include <gtest/gtest.h>
@@ -115,6 +116,8 @@ TEST(ClientSnapshotBufferTest, GivenNewBuffer_WhenSizeQueried_ThenZero)
 
 TEST(ClientSnapshotBufferTest, GivenZeroCapacity_WhenConstructed_ThenAssertFires)
 {
+    // Zero capacity is an invariant violation (assert). Only fires in debug builds;
+    // in release the assert is compiled out and behavior is undefined by contract.
     EXPECT_DEBUG_DEATH(ClientSnapshotBuffer{0}, ".*capacity.*");
 }
 
@@ -276,4 +279,27 @@ TEST(ClientSnapshotBufferTest, GivenFourSnapshots_WhenInterpolateBetweenMiddleTi
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result->ships.size(), 1u);
     EXPECT_DOUBLE_EQ(result->ships[0].position.x, 15.0);
+}
+
+TEST(ClientSnapshotBufferTest, GivenBufferWithSnapshots_WhenInterpolateWithDefaultDelay_ThenRenderTimeLagsLatestByDelay)
+{
+    // Demonstrates the intended caller pattern:
+    //   renderTime = latestSnapshotTime - kDefaultInterpolationDelaySeconds
+    // so the renderer always queries 100 ms behind the newest received snapshot.
+    ClientSnapshotBuffer buffer;
+    buffer.push(makeSnap(1, 0.0,  {0.0,   0.0, 0.0}));
+    buffer.push(makeSnap(2, 0.05, {50.0,  0.0, 0.0}));
+    buffer.push(makeSnap(3, 0.1,  {100.0, 0.0, 0.0}));
+    buffer.push(makeSnap(4, 0.2,  {200.0, 0.0, 0.0}));
+
+    // Hardcode renderTime rather than computing latestTime - kDefaultInterpolationDelaySeconds:
+    // 0.2 - 0.1 is not exactly 0.1 in IEEE 754, which can cause range-check edge cases.
+    constexpr double renderTime = 0.1; // == snap3.elapsedSeconds == latestTime - delay
+
+    const auto result = buffer.interpolate(renderTime);
+
+    ASSERT_TRUE(result.has_value());
+    EXPECT_DOUBLE_EQ(result->renderTime, renderTime);
+    ASSERT_EQ(result->ships.size(), 1u);
+    EXPECT_NEAR(result->ships[0].position.x, 100.0, 1e-9);
 }

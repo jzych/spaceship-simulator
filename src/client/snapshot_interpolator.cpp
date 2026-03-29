@@ -30,9 +30,9 @@ shared::Vec3 lerp(const shared::Vec3& a, const shared::Vec3& b, double t)
 //   3. If dot > 0.9995 the angle is nearly zero — fall back to normalised
 //      lerp to avoid dividing by sin(θ) ≈ 0.
 //   4. Otherwise use the standard slerp formula:
-//        s0 = sin((1-t)·θ) / sin(θ)
-//        s1 = sin(t·θ)     / sin(θ)
-//        result = s0·q0 + s1·q1adj
+//        scaleFrom = sin((1-t)·θ) / sin(θ)
+//        scaleTo   = sin(t·θ)     / sin(θ)
+//        result = scaleFrom·q0 + scaleTo·q1adj
 // ---------------------------------------------------------------------------
 
 shared::Quaternion slerp(const shared::Quaternion& q0,
@@ -42,16 +42,11 @@ shared::Quaternion slerp(const shared::Quaternion& q0,
     assert(t >= 0.0 && t <= 1.0);
 
     // Short-arc correction: ensure we rotate the "short way round"
-    shared::Quaternion q1adj = q1;
-    double dot = q0.w*q1.w + q0.x*q1.x + q0.y*q1.y + q0.z*q1.z;
-    if (dot < 0.0)
-    {
-        q1adj = {-q1.w, -q1.x, -q1.y, -q1.z};
-        dot   = -dot;
-    }
-
+    const double rawDot = q0.w*q1.w + q0.x*q1.x + q0.y*q1.y + q0.z*q1.z;
+    const bool flip = rawDot < 0.0;
+    const shared::Quaternion q1adj = flip ? shared::Quaternion{-q1.w, -q1.x, -q1.y, -q1.z} : q1;
     // Clamp numerical noise
-    if (dot > 1.0) dot = 1.0;
+    const double dot = std::clamp(flip ? -rawDot : rawDot, 0.0, 1.0);
 
     // Threshold below which sin(θ) ≈ 0 and the slerp formula would divide by zero
     constexpr double kSlerpThreshold = 0.9995;
@@ -73,14 +68,14 @@ shared::Quaternion slerp(const shared::Quaternion& q0,
     // Standard slerp
     const double theta0    = std::acos(dot);                    // angle between q0 and q1adj
     const double sinTheta0 = std::sin(theta0);
-    const double s0        = std::sin((1.0 - t) * theta0) / sinTheta0;
-    const double s1        = std::sin(t           * theta0) / sinTheta0;
+    const double scaleFrom = std::sin((1.0 - t) * theta0) / sinTheta0;
+    const double scaleTo   = std::sin(t           * theta0) / sinTheta0;
 
     return {
-        s0 * q0.w + s1 * q1adj.w,
-        s0 * q0.x + s1 * q1adj.x,
-        s0 * q0.y + s1 * q1adj.y,
-        s0 * q0.z + s1 * q1adj.z,
+        scaleFrom * q0.w + scaleTo * q1adj.w,
+        scaleFrom * q0.x + scaleTo * q1adj.x,
+        scaleFrom * q0.y + scaleTo * q1adj.y,
+        scaleFrom * q0.z + scaleTo * q1adj.z,
     };
 }
 
