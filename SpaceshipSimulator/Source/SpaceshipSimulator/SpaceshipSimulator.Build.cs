@@ -1,6 +1,7 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class SpaceshipSimulator : ModuleRules
 {
@@ -9,17 +10,20 @@ public class SpaceshipSimulator : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		CppStandard = CppStandardVersion.Cpp20;
 
+		// Simulation source root: all spaceship:: headers resolve from here.
+		// UBT auto-discovers and compiles all .cpp files under Sim/ as part of
+		// this module — no plugin DLL boundary, no __declspec(dllexport) needed.
+		string SimRoot = Path.Combine(ModuleDirectory, "Sim");
+		PrivateIncludePaths.Add(SimRoot);
+		PublicIncludePaths.Add(SimRoot);
+
+		// Suppress warnings from UE macros (check, verify, TEXT) that shadow
+		// standard C++ identifiers in simulation headers.
+		bEnableUndefinedIdentifierWarnings = false;
+
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput"
 		});
-
-		// Simulation plugin — provides all spaceship:: namespaced headers and code.
-		// No pre-compiled lib step required; UBT compiles sim sources directly.
-		PrivateDependencyModuleNames.Add("SpaceshipSim");
-
-		// Suppress warnings from UE macros that shadow standard C++ identifiers
-		// in simulation headers included transitively via SpaceshipSim.
-		bEnableUndefinedIdentifierWarnings = false;
 	}
 }

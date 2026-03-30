@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
 
-set(SIM_ROOT SpaceshipSimulator/Plugins/SpaceshipSim/Source/SpaceshipSim/Private)
+set(SIM_ROOT SpaceshipSimulator/Source/SpaceshipSimulator/Sim)
 
 add_library(spaceship-shared INTERFACE)
 target_include_directories(spaceship-shared INTERFACE ${SIM_ROOT})
