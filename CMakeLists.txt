@@ -58,6 +58,8 @@ add_library(spaceship-client-stub
     src/client/client_snapshot_buffer.cpp
     src/client/client_snapshot_buffer.hpp
     src/client/client_types.hpp
+    src/client/simulation_runner.cpp
+    src/client/simulation_runner.hpp
     src/client/snapshot_interpolator.cpp
     src/client/snapshot_interpolator.hpp
 )
@@ -87,6 +89,7 @@ if(BUILD_TESTING)
 
     add_executable(spaceship-simulator-tests
         src/client/tests/client_snapshot_buffer_test.cpp
+        src/client/tests/simulation_runner_test.cpp
         src/client/tests/snapshot_interpolator_test.cpp
         src/server/collision/tests/broad_phase_test.cpp
         src/server/collision/tests/collision_pipeline_test.cpp

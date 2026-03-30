@@ -1,0 +1,627 @@
+{
+	"folders": [
+		{
+			"name": "SpaceshipClient",
+			"path": "."
+		},
+		{
+			"name": "UE5",
+			"path": "D:\\Epic Games\\UE_5.7"
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off",
+		"npm.autoDetect": "off",
+		"terminal.integrated.env.windows": {
+			"PATH": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\ThirdParty\\DotNet\\8.0.412\\win-x64;${env:PATH}",
+			"DOTNET_ROOT": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\ThirdParty\\DotNet\\8.0.412\\win-x64",
+			"DOTNET_HOST_PATH": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\ThirdParty\\DotNet\\8.0.412\\win-x64\\dotnet.exe",
+			"DOTNET_MULTILEVEL_LOOKUP": "0",
+			"DOTNET_ROLL_FORWARD": "LatestMajor"
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-vscode.cpptools",
+			"ms-dotnettools.csharp"
+		]
+	},
+	"tasks": {
+		"version": "2.0.0",
+		"tasks": [
+			{
+				"label": "SpaceshipClient Win64 Debug Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Debug",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Debug Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Debug",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClient Win64 Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Debug Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Debug",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 DebugGame Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"DebugGame",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"DebugGame",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClient Win64 DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 DebugGame Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"DebugGame",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Development Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Development",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Development Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Development",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClient Win64 Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Development Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Development",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Test Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Test",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Test Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Test",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClient Win64 Test Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Test Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Test",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Shipping Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Shipping",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Shipping Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Shipping",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClient Win64 Shipping Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClient Win64 Shipping Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClient",
+					"Win64",
+					"Shipping",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 Debug Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"Debug",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 Debug Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"Debug",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClientEditor Win64 Debug Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 Debug Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"Debug",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 DebugGame Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"DebugGame",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 DebugGame Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"DebugGame",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClientEditor Win64 DebugGame Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 DebugGame Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"DebugGame",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 Development Build",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"Development",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 Development Rebuild",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Build.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"Development",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"dependsOn": [
+					"SpaceshipClientEditor Win64 Development Clean"
+				],
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"label": "SpaceshipClientEditor Win64 Development Clean",
+				"group": "build",
+				"command": "Engine\\Build\\BatchFiles\\Clean.bat",
+				"args": [
+					"SpaceshipClientEditor",
+					"Win64",
+					"Development",
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-waitmutex"
+				],
+				"problemMatcher": "$msCompile",
+				"type": "shell",
+				"options": {
+					"cwd": "D:\\Epic Games\\UE_5.7"
+				}
+			}
+		]
+	},
+	"launch": {
+		"version": "0.2.0",
+		"configurations": [
+			{
+				"name": "Launch SpaceshipClient (Debug)",
+				"request": "launch",
+				"program": "M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\Binaries\\Win64\\UnrealGame-Win64-Debug.exe",
+				"preLaunchTask": "SpaceshipClient Win64 Debug Build",
+				"args": [
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClient (DebugGame)",
+				"request": "launch",
+				"program": "M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\Binaries\\Win64\\UnrealGame-Win64-DebugGame.exe",
+				"preLaunchTask": "SpaceshipClient Win64 DebugGame Build",
+				"args": [
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClient (Development)",
+				"request": "launch",
+				"program": "M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\Binaries\\Win64\\UnrealGame.exe",
+				"preLaunchTask": "SpaceshipClient Win64 Development Build",
+				"args": [
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClient (Test)",
+				"request": "launch",
+				"program": "M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\Binaries\\Win64\\UnrealGame-Win64-Test.exe",
+				"preLaunchTask": "SpaceshipClient Win64 Test Build",
+				"args": [
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClient (Shipping)",
+				"request": "launch",
+				"program": "M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\Binaries\\Win64\\UnrealGame-Win64-Shipping.exe",
+				"preLaunchTask": "SpaceshipClient Win64 Shipping Build",
+				"args": [
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClientEditor (Debug)",
+				"request": "launch",
+				"program": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\Win64\\UnrealEditor-Win64-Debug.exe",
+				"preLaunchTask": "SpaceshipClientEditor Win64 Debug Build",
+				"args": [
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject"
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClientEditor (DebugGame)",
+				"request": "launch",
+				"program": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\Win64\\UnrealEditor-Win64-DebugGame.exe",
+				"preLaunchTask": "SpaceshipClientEditor Win64 DebugGame Build",
+				"args": [
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject"
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Launch SpaceshipClientEditor (Development)",
+				"request": "launch",
+				"program": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\Win64\\UnrealEditor.exe",
+				"preLaunchTask": "SpaceshipClientEditor Win64 Development Build",
+				"args": [
+					"M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject"
+				],
+				"cwd": "D:\\Epic Games\\UE_5.7",
+				"stopAtEntry": false,
+				"console": "integratedTerminal",
+				"type": "cppvsdbg",
+				"visualizerFile": "D:\\Epic Games\\UE_5.7\\Engine\\Extras\\VisualStudioDebugging\\Unreal.natvis",
+				"sourceFileMap": {
+					"D:\\build\\++UE5\\Sync": "D:\\Epic Games\\UE_5.7"
+				}
+			},
+			{
+				"name": "Generate Project Files",
+				"type": "coreclr",
+				"request": "launch",
+				"preLaunchTask": "UnrealBuildTool Win64 Development Build",
+				"program": "D:\\Epic Games\\UE_5.7\\Engine\\Build\\BatchFiles\\RunUBT.bat",
+				"args": [
+					"-projectfiles",
+					"-vscode",
+					"-project=M:\\CodingProjects\\spaceship-simulator\\ue5\\SpaceshipClient\\SpaceshipClient.uproject",
+					"-game",
+					"-engine",
+					"-dotnet"
+				],
+				"env": {
+					"PATH": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\ThirdParty\\DotNet\\8.0.412\\win-x64;${env:PATH}",
+					"DOTNET_ROOT": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\ThirdParty\\DotNet\\8.0.412\\win-x64",
+					"DOTNET_HOST_PATH": "D:\\Epic Games\\UE_5.7\\Engine\\Binaries\\ThirdParty\\DotNet\\8.0.412\\win-x64\\dotnet.exe",
+					"DOTNET_MULTILEVEL_LOOKUP": "0",
+					"DOTNET_ROLL_FORWARD": "LatestMajor"
+				},
+				"console": "integratedTerminal",
+				"stopAtEntry": false,
+				"cwd": "D:\\Epic Games\\UE_5.7"
+			}
+		]
+	}
+}

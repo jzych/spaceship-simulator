@@ -44,13 +44,24 @@
 /build/
 /build-ci/
 /build-new/
+/build-ue5/
+
+# UE5 project generated artifacts
+/ue5/SpaceshipClient/Binaries/
+/ue5/SpaceshipClient/Intermediate/
+/ue5/SpaceshipClient/Saved/
+/ue5/SpaceshipClient/DerivedDataCache/
+/ue5/SpaceshipClient/.vs/
+/ue5/SpaceshipClient/.vscode/
+/ue5/SpaceshipClient/.ignore
+/ue5/SpaceshipClient_tmp/
 
 # Local scripts output
 sonar-findings.md
 
 # custom directory
-/.ignore
-/tasks
+/.ignore/
+/tasks/
 
 # Claude Code
 .claude/
