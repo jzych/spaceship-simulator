@@ -42,17 +42,25 @@
 
 # local build directories
 /build/
-/build-ci/
-/build-new/
+
+# UE5 project generated artifacts
+/SpaceshipSimulator/Binaries/
+/SpaceshipSimulator/Intermediate/
+/SpaceshipSimulator/Saved/
+/SpaceshipSimulator/DerivedDataCache/
+/SpaceshipSimulator/.vs/
+/SpaceshipSimulator/.vscode/
+/SpaceshipSimulator/.ignore
+/SpaceshipSimulator/Plugins/SpaceshipSim/Binaries/
+/SpaceshipSimulator/Plugins/SpaceshipSim/Intermediate/
 
 # Local scripts output
 sonar-findings.md
 
 # custom directory
-/.ignore
-/tasks
+/.ignore/
+/tasks/
 
 # Claude Code
 .claude/
 CLAUDE.md
-build_warn/
