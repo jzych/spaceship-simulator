@@ -60,9 +60,8 @@ jobs:
             --sonarqube sonar-coverage.xml \
             --exclude-unreachable-branches \
             --exclude-throw-branches \
-            --filter 'src/' \
-            --exclude 'src/.*/tests/.*' \
-            --exclude 'src/main\.cpp'
+            --filter 'SpaceshipSimulator/Source/SpaceshipSimulator/Sim/' \
+            --exclude 'tests/'
           test -s sonar-coverage.xml
 
       - name: Upload analysis artifacts
@@ -96,11 +95,11 @@ jobs:
           args: >
             -Dsonar.organization=jzych
             -Dsonar.projectKey=jzych_spaceship-simulator
-            -Dsonar.sources=src
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=src/**/tests/**
+            -Dsonar.sources=SpaceshipSimulator/Source/SpaceshipSimulator/Sim
+            -Dsonar.tests=tests
+            -Dsonar.test.inclusions=tests/**
             -Dsonar.exclusions=.ignore/**,build/**,docs/**,scripts/**
-            -Dsonar.coverage.exclusions=src/**/tests/**,src/main.cpp
+            -Dsonar.coverage.exclusions=tests/**
             -Dsonar.cfamily.compile-commands=build/compile_commands.json
             -Dsonar.coverageReportPaths=sonar-coverage.xml
             -Dsonar.javascript.file.suffixes=-
