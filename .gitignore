@@ -47,6 +47,18 @@
 /build-ue5/
 
 # UE5 project generated artifacts
+/SpaceshipSimulator/Binaries/
+/SpaceshipSimulator/Intermediate/
+/SpaceshipSimulator/Saved/
+/SpaceshipSimulator/DerivedDataCache/
+/SpaceshipSimulator/.vs/
+/SpaceshipSimulator/.vscode/
+/SpaceshipSimulator/.ignore
+/SpaceshipSimulator/Plugins/SpaceshipSim/Binaries/
+/SpaceshipSimulator/Plugins/SpaceshipSim/Intermediate/
+
+# Old UE5 project (superseded by SpaceshipSimulator/)
+/ue5/
 /ue5/SpaceshipClient/Binaries/
 /ue5/SpaceshipClient/Intermediate/
 /ue5/SpaceshipClient/Saved/

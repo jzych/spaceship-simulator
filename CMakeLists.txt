@@ -7,69 +7,71 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(CTest)
 
+set(SIM_ROOT SpaceshipSimulator/Plugins/SpaceshipSim/Source/SpaceshipSim/Private)
+
 add_library(spaceship-shared INTERFACE)
-target_include_directories(spaceship-shared INTERFACE src)
+target_include_directories(spaceship-shared INTERFACE ${SIM_ROOT})
 
 add_library(spaceship-server
-    src/server/collision/broad_phase.cpp
-    src/server/collision/broad_phase.hpp
-    src/server/collision/collision_system.cpp
-    src/server/collision/collision_system.hpp
-    src/server/collision/collision_types.hpp
-    src/server/collision/sweep_math.cpp
-    src/server/collision/sweep_math.hpp
-    src/server/control/ship_control_system.cpp
-    src/server/control/ship_control_system.hpp
-    src/server/simulation/bootstrap.cpp
-    src/server/simulation/bootstrap.hpp
-    src/server/simulation/gravity/gravity_system.cpp
-    src/server/simulation/gravity/gravity_system.hpp
-    src/server/simulation/gravity/massive_body_motion_system.cpp
-    src/server/simulation/gravity/massive_body_motion_system.hpp
-    src/server/simulation/gravity/orbit_cache.hpp
-    src/server/simulation/gravity/orbit_cache_system.cpp
-    src/server/simulation/gravity/orbit_cache_system.hpp
-    src/server/simulation/gravity/orbit_fitting.cpp
-    src/server/simulation/gravity/orbit_fitting.hpp
-    src/server/simulation/gravity/reference_body_selector.cpp
-    src/server/simulation/gravity/reference_body_selector.hpp
-    src/server/simulation/integration_system.cpp
-    src/server/simulation/integration_system.hpp
-    src/server/simulation/simulation_config.hpp
-    src/server/simulation/simulation_math.hpp
-    src/server/simulation/simulation_server.cpp
-    src/server/simulation/simulation_server.hpp
-    src/server/simulation/simulation_world.hpp
-    src/server/simulation/timestep/timescale_heuristics.cpp
-    src/server/simulation/timestep/timescale_heuristics.hpp
-    src/server/simulation/timestep/timestep_controller.cpp
-    src/server/simulation/timestep/timestep_controller.hpp
-    src/server/simulation/timestep/timestep_types.hpp
-    src/server/snapshot/snapshot_system.cpp
-    src/server/snapshot/snapshot_system.hpp
-    src/server/snapshot/snapshot_types.hpp
-    src/server/spawning/spawning_system.cpp
-    src/server/spawning/spawning_system.hpp
+    ${SIM_ROOT}/server/collision/broad_phase.cpp
+    ${SIM_ROOT}/server/collision/broad_phase.hpp
+    ${SIM_ROOT}/server/collision/collision_system.cpp
+    ${SIM_ROOT}/server/collision/collision_system.hpp
+    ${SIM_ROOT}/server/collision/collision_types.hpp
+    ${SIM_ROOT}/server/collision/sweep_math.cpp
+    ${SIM_ROOT}/server/collision/sweep_math.hpp
+    ${SIM_ROOT}/server/control/ship_control_system.cpp
+    ${SIM_ROOT}/server/control/ship_control_system.hpp
+    ${SIM_ROOT}/server/simulation/bootstrap.cpp
+    ${SIM_ROOT}/server/simulation/bootstrap.hpp
+    ${SIM_ROOT}/server/simulation/gravity/gravity_system.cpp
+    ${SIM_ROOT}/server/simulation/gravity/gravity_system.hpp
+    ${SIM_ROOT}/server/simulation/gravity/massive_body_motion_system.cpp
+    ${SIM_ROOT}/server/simulation/gravity/massive_body_motion_system.hpp
+    ${SIM_ROOT}/server/simulation/gravity/orbit_cache.hpp
+    ${SIM_ROOT}/server/simulation/gravity/orbit_cache_system.cpp
+    ${SIM_ROOT}/server/simulation/gravity/orbit_cache_system.hpp
+    ${SIM_ROOT}/server/simulation/gravity/orbit_fitting.cpp
+    ${SIM_ROOT}/server/simulation/gravity/orbit_fitting.hpp
+    ${SIM_ROOT}/server/simulation/gravity/reference_body_selector.cpp
+    ${SIM_ROOT}/server/simulation/gravity/reference_body_selector.hpp
+    ${SIM_ROOT}/server/simulation/integration_system.cpp
+    ${SIM_ROOT}/server/simulation/integration_system.hpp
+    ${SIM_ROOT}/server/simulation/simulation_config.hpp
+    ${SIM_ROOT}/server/simulation/simulation_math.hpp
+    ${SIM_ROOT}/server/simulation/simulation_server.cpp
+    ${SIM_ROOT}/server/simulation/simulation_server.hpp
+    ${SIM_ROOT}/server/simulation/simulation_world.hpp
+    ${SIM_ROOT}/server/simulation/timestep/timescale_heuristics.cpp
+    ${SIM_ROOT}/server/simulation/timestep/timescale_heuristics.hpp
+    ${SIM_ROOT}/server/simulation/timestep/timestep_controller.cpp
+    ${SIM_ROOT}/server/simulation/timestep/timestep_controller.hpp
+    ${SIM_ROOT}/server/simulation/timestep/timestep_types.hpp
+    ${SIM_ROOT}/server/snapshot/snapshot_system.cpp
+    ${SIM_ROOT}/server/snapshot/snapshot_system.hpp
+    ${SIM_ROOT}/server/snapshot/snapshot_types.hpp
+    ${SIM_ROOT}/server/spawning/spawning_system.cpp
+    ${SIM_ROOT}/server/spawning/spawning_system.hpp
 )
-target_include_directories(spaceship-server PUBLIC src)
+target_include_directories(spaceship-server PUBLIC ${SIM_ROOT})
 target_link_libraries(spaceship-server PUBLIC spaceship-shared)
 
 add_library(spaceship-client-stub
-    src/client/client_snapshot_buffer.cpp
-    src/client/client_snapshot_buffer.hpp
-    src/client/client_types.hpp
-    src/client/simulation_runner.cpp
-    src/client/simulation_runner.hpp
-    src/client/snapshot_interpolator.cpp
-    src/client/snapshot_interpolator.hpp
+    ${SIM_ROOT}/client/client_snapshot_buffer.cpp
+    ${SIM_ROOT}/client/client_snapshot_buffer.hpp
+    ${SIM_ROOT}/client/client_types.hpp
+    ${SIM_ROOT}/client/simulation_runner.cpp
+    ${SIM_ROOT}/client/simulation_runner.hpp
+    ${SIM_ROOT}/client/snapshot_interpolator.cpp
+    ${SIM_ROOT}/client/snapshot_interpolator.hpp
 )
-target_include_directories(spaceship-client-stub PUBLIC src)
+target_include_directories(spaceship-client-stub PUBLIC ${SIM_ROOT})
 target_link_libraries(spaceship-client-stub
     PUBLIC  spaceship-shared
     PRIVATE spaceship-server
 )
 
-add_executable(spaceship-simulator src/main.cpp)
+add_executable(spaceship-simulator main.cpp)
 target_link_libraries(spaceship-simulator PRIVATE spaceship-server spaceship-client-stub)
 
 if(BUILD_TESTING)
@@ -88,37 +90,37 @@ if(BUILD_TESTING)
     FetchContent_MakeAvailable(googletest)
 
     add_executable(spaceship-simulator-tests
-        src/client/tests/client_snapshot_buffer_test.cpp
-        src/client/tests/simulation_runner_test.cpp
-        src/client/tests/snapshot_interpolator_test.cpp
-        src/server/collision/tests/broad_phase_test.cpp
-        src/server/collision/tests/collision_pipeline_test.cpp
-        src/server/collision/tests/collision_system_test.cpp
-        src/server/collision/tests/sweep_math_test.cpp
-        src/server/control/tests/ship_control_system_test.cpp
-        src/server/simulation/gravity/tests/geographic_telemetry_test.cpp
-        src/server/simulation/gravity/tests/gravity_system_test.cpp
-        src/server/simulation/gravity/tests/gravity_test.cpp
-        src/server/simulation/gravity/tests/massive_body_motion_test.cpp
-        src/server/simulation/gravity/tests/orbit_cache_test.cpp
-        src/server/simulation/gravity/tests/orbit_fitting_test.cpp
-        src/server/simulation/gravity/tests/reference_body_selector_test.cpp
-        src/server/simulation/tests/integration_system_test.cpp
-        src/server/simulation/tests/integration_test.cpp
-        src/server/simulation/tests/ship_behavior_test.cpp
-        src/server/simulation/tests/simulation_math_test.cpp
-        src/server/simulation/tests/simulation_server_test.cpp
-        src/server/simulation/timestep/tests/timescale_heuristics_test.cpp
-        src/server/simulation/timestep/tests/timestep_ladder_test.cpp
-        src/server/simulation/timestep/tests/timestep_controller_test.cpp
-        src/server/simulation/timestep/tests/energy_regression_test.cpp
-        src/server/snapshot/tests/snapshot_system_test.cpp
-        src/server/spawning/tests/spawning_system_test.cpp
+        tests/client/client_snapshot_buffer_test.cpp
+        tests/client/simulation_runner_test.cpp
+        tests/client/snapshot_interpolator_test.cpp
+        tests/server/collision/broad_phase_test.cpp
+        tests/server/collision/collision_pipeline_test.cpp
+        tests/server/collision/collision_system_test.cpp
+        tests/server/collision/sweep_math_test.cpp
+        tests/server/control/ship_control_system_test.cpp
+        tests/server/simulation/gravity/geographic_telemetry_test.cpp
+        tests/server/simulation/gravity/gravity_system_test.cpp
+        tests/server/simulation/gravity/gravity_test.cpp
+        tests/server/simulation/gravity/massive_body_motion_test.cpp
+        tests/server/simulation/gravity/orbit_cache_test.cpp
+        tests/server/simulation/gravity/orbit_fitting_test.cpp
+        tests/server/simulation/gravity/reference_body_selector_test.cpp
+        tests/server/simulation/integration_system_test.cpp
+        tests/server/simulation/integration_test.cpp
+        tests/server/simulation/ship_behavior_test.cpp
+        tests/server/simulation/simulation_math_test.cpp
+        tests/server/simulation/simulation_server_test.cpp
+        tests/server/simulation/timestep/timescale_heuristics_test.cpp
+        tests/server/simulation/timestep/timestep_ladder_test.cpp
+        tests/server/simulation/timestep/timestep_controller_test.cpp
+        tests/server/simulation/timestep/energy_regression_test.cpp
+        tests/server/snapshot/snapshot_system_test.cpp
+        tests/server/spawning/spawning_system_test.cpp
     )
     target_include_directories(spaceship-simulator-tests
         PRIVATE
-            src
-            src/server/tests
+            ${SIM_ROOT}
+            tests
     )
     target_compile_definitions(spaceship-simulator-tests PRIVATE BUILD_TESTING)
     target_link_libraries(spaceship-simulator-tests
