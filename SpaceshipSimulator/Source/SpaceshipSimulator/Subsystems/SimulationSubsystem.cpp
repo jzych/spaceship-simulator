@@ -1,7 +1,8 @@
 #include "SimulationSubsystem.h"
-#include "../Actors/PlanetActor.h"
+#include "Actors/PlanetActor.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerInput.h"
 #include "EngineUtils.h"
 
 THIRD_PARTY_INCLUDES_START
@@ -20,7 +21,7 @@ void USimulationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 
     spaceship::server::SimulationConfig simConfig;
     spaceship::client::SimulationRunnerConfig runnerConfig;
-    runnerConfig.timeScaleFactor  = 100000.0;
+    runnerConfig.timeScaleFactor    = 100000.0;
     runnerConfig.maxTicksPerAdvance = 10000;
 
     Runner = MakeUnique<spaceship::client::SimulationRunner>(simConfig, runnerConfig);
@@ -30,22 +31,6 @@ void USimulationSubsystem::Initialize(FSubsystemCollectionBase& Collection)
         runnerConfig.timeScaleFactor,
         (int)Runner->server().world().massiveBodies.size());
 
-    // Hide default sky/atmosphere/fog actors — irrelevant for a space scene and
-    // they produce "skydome doesn't cover scene" warnings at our camera altitude.
-    if (UWorld* World = GetWorld())
-    {
-        for (TActorIterator<AActor> It(World); It; ++It)
-        {
-            const FString ClassName = (*It)->GetClass()->GetName();
-            if (ClassName.Contains(TEXT("Sky")) ||
-                ClassName.Contains(TEXT("Atmosphere")) ||
-                ClassName.Contains(TEXT("Fog")))
-            {
-                (*It)->SetActorHiddenInGame(true);
-                UE_LOG(LogSimBridge, Log, TEXT("Hidden sky actor: %s"), *ClassName);
-            }
-        }
-    }
 }
 
 void USimulationSubsystem::Deinitialize()
@@ -63,6 +48,39 @@ void USimulationSubsystem::Tick(float DeltaTime)
 {
     if (!Runner) return;
 
+    // Destroy default template actors (sky, landscape, fog, clouds, etc.) during
+    // startup. Runs every tick for kStartupCleanupDuration seconds so World
+    // Partition streaming actors that arrive after the first tick are also caught.
+    if (StartupCleanupTimer > 0.0f)
+    {
+        StartupCleanupTimer -= DeltaTime;
+        if (UWorld* World = GetWorld())
+        {
+            TArray<AActor*> ToDestroy;
+            for (TActorIterator<AActor> It(World); It; ++It)
+            {
+                const FString ClassName = (*It)->GetClass()->GetName();
+                if (ClassName.Contains(TEXT("Landscape"))        ||
+                    ClassName.Contains(TEXT("Sky"))              ||
+                    ClassName.Contains(TEXT("Atmosphere"))       ||
+                    ClassName.Contains(TEXT("Fog"))              ||
+                    ClassName.Contains(TEXT("Cloud"))            ||
+                    ClassName.Contains(TEXT("DirectionalLight")) ||
+                    ClassName.Equals(TEXT("StaticMeshActor"))    ||
+                    ClassName.Equals(TEXT("Brush")))
+                {
+                    ToDestroy.Add(*It);
+                }
+            }
+            for (AActor* Actor : ToDestroy)
+            {
+                UE_LOG(LogSimBridge, Log, TEXT("Destroyed template actor: %s (%s)"),
+                    *Actor->GetName(), *Actor->GetClass()->GetName());
+                Actor->Destroy();
+            }
+        }
+    }
+
     Runner->advance(static_cast<double>(DeltaTime));
 
     const auto& buffer = Runner->snapshotBuffer();
@@ -74,15 +92,67 @@ void USimulationSubsystem::Tick(float DeltaTime)
     const auto state = buffer.interpolate(renderTime);
     if (!state.has_value()) return;
 
-    const auto earthPos = FindEarthPosition(*state);
+    // Camera position = Earth + altitude in sim Y (up direction).
+    // Recomputed every tick so the camera tracks Earth's orbital motion.
+    RenderOriginSim = spaceship::client::select_render_origin(*state, {0.0, 0.0, 0.0});
+    RenderOriginSim.y += CameraAltitudeAU * kAstronomicalUnitMeters;
 
-    ReconcilePlanets(state->massiveBodies, earthPos);
-    UpdateCamera(earthPos);
+    // Drive orbit camera from player input.
+    if (UWorld* World = GetWorld())
+    {
+        if (APlayerController* PC = World->GetFirstPlayerController())
+        {
+            if (APawn* Pawn = PC->GetPawn())
+                UpdateOrbitCamera(PC, Pawn);
+        }
+    }
+
+    ReconcilePlanets(state->massiveBodies, RenderOriginSim);
 }
 
 TStatId USimulationSubsystem::GetStatId() const
 {
     RETURN_QUICK_DECLARE_CYCLE_STAT(USimulationSubsystem, STATGROUP_Tickables);
+}
+
+// ---------------------------------------------------------------------------
+// Orbit camera
+// ---------------------------------------------------------------------------
+
+void USimulationSubsystem::UpdateOrbitCamera(APlayerController* PC, APawn* Pawn)
+{
+    // Capture mouse once on the first tick so look works immediately.
+    if (!bInputInitialized)
+    {
+        PC->SetInputMode(FInputModeGameOnly());
+        PC->SetShowMouseCursor(false);
+        bInputInitialized = true;
+    }
+
+    if (PC->PlayerInput)
+    {
+        // --- Mouse look (yaw + pitch) ---
+        const float MouseX = PC->PlayerInput->GetKeyValue(EKeys::MouseX);
+        const float MouseY = PC->PlayerInput->GetKeyValue(EKeys::MouseY);
+
+        CameraRotation.Yaw  += MouseX * kMouseSensitivity;
+        // UE convention: mouse up = positive MouseY; pitch positive = nose down.
+        CameraRotation.Pitch = FMath::ClampAngle(
+            CameraRotation.Pitch + MouseY * kMouseSensitivity, -89.f, 89.f);
+        CameraRotation.Roll  = 0.f;
+
+        // --- Scroll zoom ---
+        const float ScrollUp   = PC->PlayerInput->GetKeyValue(EKeys::MouseScrollUp);
+        const float ScrollDown = PC->PlayerInput->GetKeyValue(EKeys::MouseScrollDown);
+        if (ScrollUp   > 0.f) CameraAltitudeAU *= kScrollZoomFactor;
+        if (ScrollDown > 0.f) CameraAltitudeAU /= kScrollZoomFactor;
+        CameraAltitudeAU = FMath::Clamp(CameraAltitudeAU, kMinAltitudeAU, kMaxAltitudeAU);
+    }
+
+    // Pawn is the camera: pin it at (0,0,0) in UE space (= the render origin)
+    // and apply the current view rotation.
+    Pawn->SetActorLocation(FVector::ZeroVector);
+    Pawn->SetActorRotation(CameraRotation);
 }
 
 // ---------------------------------------------------------------------------
@@ -111,11 +181,15 @@ void USimulationSubsystem::ReconcilePlanets(
             PlanetActors.Add(NetId, Actor);
         }
 
-        Actor->SetActorLocation(ToUEPosition(Body.position, RenderOrigin, NetId));
+        const FVector UEPos = ToUEPosition(Body.position, RenderOrigin, NetId);
+        Actor->SetActorLocation(UEPos);
         Actor->SetActorScale3D(ToUEScale(Body.radiusMeters, NetId));
+
+        // Keep the Sun's directional light aimed from the Sun toward Earth (origin).
+        if (NetId == 0 && !UEPos.IsNearlyZero())
+            Actor->SetSunLightDirection((-UEPos).GetSafeNormal());
     }
 
-    // Despawn actors no longer in the state.
     TArray<uint32> ToRemove;
     for (const auto& Pair : PlanetActors)
     {
@@ -145,7 +219,10 @@ APlanetActor* USimulationSubsystem::SpawnPlanet(uint32 NetId)
 
     switch (NetId)
     {
-    case 0: Actor->SetDisplayColor(FLinearColor(1.0f, 0.9f, 0.1f)); break; // Sun  — yellow
+    case 0:
+        Actor->SetDisplayColor(FLinearColor(1.0f, 0.9f, 0.1f)); // Sun — yellow
+        Actor->InitSunLighting();
+        break;
     case 1: Actor->SetDisplayColor(FLinearColor(0.1f, 0.3f, 1.0f)); break; // Earth — blue
     case 2: Actor->SetDisplayColor(FLinearColor(0.6f, 0.6f, 0.6f)); break; // Moon  — gray
     default: break;
@@ -174,100 +251,46 @@ FVector USimulationSubsystem::ToUEPosition(
     const spaceship::shared::Vec3& RenderOrigin,
     uint32 NetId)
 {
-    // Offset from render origin (Earth) in double — preserves precision.
-    const double offX = SimPos.x - RenderOrigin.x;
-    const double offY = SimPos.y - RenderOrigin.y;
-    const double offZ = SimPos.z - RenderOrigin.z;
-
-    // Sim (X-fwd, Y-up, Z-right, RH)  ->  UE (X-fwd, Y-right, Z-up, LH)
-    // UE.X =  offX * 100,  UE.Y = -offZ * 100,  UE.Z = offY * 100
-    double ueX = offX * 100.0;
-    double ueY = -offZ * 100.0;
-    double ueZ = offY * 100.0;
-
-    // Sun (NetId 0) is 1 AU from Earth — float precision breaks down at that
-    // distance.  Clamp to kSunDisplayDistanceCm while preserving direction
-    // so the Sun appears correctly in the sky.
     if (NetId == 0)
     {
+        // Sun is ~1 AU away — compute direction in double then clamp distance.
+        const double offX = SimPos.x - RenderOrigin.x;
+        const double offY = SimPos.y - RenderOrigin.y;
+        const double offZ = SimPos.z - RenderOrigin.z;
+
+        double ueX =  offX * 100.0;
+        double ueY = -offZ * 100.0;
+        double ueZ =  offY * 100.0;
+
         const double dist = FMath::Sqrt(ueX*ueX + ueY*ueY + ueZ*ueZ);
         if (dist > 0.0)
         {
             const double scale = kSunDisplayDistanceCm / dist;
-            ueX *= scale;
-            ueY *= scale;
-            ueZ *= scale;
+            ueX *= scale; ueY *= scale; ueZ *= scale;
         }
+        return FVector(ueX, ueY, ueZ);
     }
 
-    return FVector(
-        static_cast<float>(ueX),
-        static_cast<float>(ueY),
-        static_cast<float>(ueZ));
+    const spaceship::client::RenderVec3 pos =
+        spaceship::client::to_render_position(SimPos, RenderOrigin);
+    return FVector(pos.x, pos.y, pos.z);
 }
 
 FVector USimulationSubsystem::ToUEScale(double RadiusMeters, uint32 NetId)
 {
-    // Engine sphere has 50 cm radius.  Scale = radiusCm / 50.
     if (NetId == 0)
     {
-        // Sun is clamped to kSunDisplayDistanceCm.  Preserve angular size:
-        //   real angular radius = SunRadius / 1 AU  (radians)
-        //   display radius (cm) = angular radius * displayDistance * boost
-        // Boost of 8 makes the Sun visually prominent (~4° diameter from camera).
-        constexpr double kSunRealAngularRadius = 695700000.0 / 149597870700.0; // rad
-        constexpr double kSunAngularBoost = 8.0;
-        const double displayRadiusCm = kSunRealAngularRadius * kSunDisplayDistanceCm * kSunAngularBoost;
+        constexpr double kSunRealAngularRadius = 695'700'000.0 / 149'597'870'700.0;
+        constexpr double kSunAngularBoost      = 8.0;
+        const double displayRadiusCm =
+            kSunRealAngularRadius * kSunDisplayDistanceCm * kSunAngularBoost;
         const float Scale = FMath::Max(
-            static_cast<float>(displayRadiusCm / 50.0),
-            kMinDisplayScale);
+            static_cast<float>(displayRadiusCm / 50.0), kMinDisplayScale);
         return FVector(Scale);
     }
 
     const double radiusCm = RadiusMeters * kRadiusExaggeration * 100.0;
     const float Scale = FMath::Max(
-        static_cast<float>(radiusCm / 50.0),
-        kMinDisplayScale);
+        static_cast<float>(radiusCm / 50.0), kMinDisplayScale);
     return FVector(Scale);
-}
-
-spaceship::shared::Vec3 USimulationSubsystem::FindEarthPosition(
-    const spaceship::client::InterpolatedWorldState& State)
-{
-    for (const auto& Body : State.massiveBodies)
-    {
-        if (Body.netId == 1) // Earth
-            return Body.position;
-    }
-    return {0.0, 0.0, 0.0};
-}
-
-// ---------------------------------------------------------------------------
-// Camera
-// ---------------------------------------------------------------------------
-
-void USimulationSubsystem::UpdateCamera(const spaceship::shared::Vec3& EarthPos)
-{
-    UWorld* World = GetWorld();
-    if (!World) return;
-
-    APlayerController* PC = World->GetFirstPlayerController();
-    if (!PC) return;
-
-    // Camera at 0.005 AU above Earth (sim +Y = UE +Z).
-    const float cameraOffsetCm = static_cast<float>(
-        kCameraOffsetAU * kAstronomicalUnitMeters * 100.0);
-
-    const FVector CameraLocation(0.0f, 0.0f, cameraOffsetCm);
-    const FRotator CameraRotation(-90.0f, 0.0f, 0.0f); // pitch straight down
-
-    if (AActor* Pawn = PC->GetPawn())
-    {
-        Pawn->SetActorLocation(CameraLocation);
-        PC->SetControlRotation(CameraRotation);
-    }
-    else
-    {
-        PC->SetControlRotation(CameraRotation);
-    }
 }
