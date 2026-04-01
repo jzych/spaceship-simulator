@@ -10,6 +10,11 @@ public class SpaceshipSimulator : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 		CppStandard = CppStandardVersion.Cpp20;
 
+		// Module root: allows cross-subdirectory includes (e.g. "Pawns/SimSpectatorPawn.h"
+		// from within GameModes/). UBT does not add the module root by default when
+		// subdirectories contain source files.
+		PrivateIncludePaths.Add(ModuleDirectory);
+
 		// Simulation source root: all spaceship:: headers resolve from here.
 		// UBT auto-discovers and compiles all .cpp files under Sim/ as part of
 		// this module — no plugin DLL boundary, no __declspec(dllexport) needed.

@@ -53,6 +53,7 @@
 /SpaceshipSimulator/.ignore
 /SpaceshipSimulator/Plugins/SpaceshipSim/Binaries/
 /SpaceshipSimulator/Plugins/SpaceshipSim/Intermediate/
+/SpaceshipSimulator/Plugins/UnrealClaude/
 
 # Local scripts output
 sonar-findings.md

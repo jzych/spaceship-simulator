@@ -60,6 +60,8 @@ add_library(spaceship-client-stub
     ${SIM_ROOT}/client/client_snapshot_buffer.cpp
     ${SIM_ROOT}/client/client_snapshot_buffer.hpp
     ${SIM_ROOT}/client/client_types.hpp
+    ${SIM_ROOT}/client/render_transform.cpp
+    ${SIM_ROOT}/client/render_transform.hpp
     ${SIM_ROOT}/client/simulation_runner.cpp
     ${SIM_ROOT}/client/simulation_runner.hpp
     ${SIM_ROOT}/client/snapshot_interpolator.cpp
@@ -88,6 +90,7 @@ if(BUILD_TESTING)
 
     add_executable(spaceship-simulator-tests
         tests/client/client_snapshot_buffer_test.cpp
+        tests/client/render_transform_test.cpp
         tests/client/simulation_runner_test.cpp
         tests/client/snapshot_interpolator_test.cpp
         tests/server/collision/broad_phase_test.cpp
