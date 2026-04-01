@@ -17,7 +17,7 @@ public:
     APlanetActor();
 
     void SetPlanetNetId(uint32 InNetId) { PlanetNetId = InNetId; }
-    uint32 GetPlanetNetId() const { return PlanetNetId; }
+    [[nodiscard]] uint32 GetPlanetNetId() const { return PlanetNetId; }
 
     void SetDisplayColor(const FLinearColor& Color);
 
@@ -39,6 +39,10 @@ private:
 
     UPROPERTY()
     TObjectPtr<UMaterialInstanceDynamic> DynamicMaterial;
+
+    // Resolved at DynamicMaterial creation time — either "Color" or "BaseColor"
+    // depending on which vector parameter the material actually exposes.
+    FName ColorParamName { NAME_None };
 
     // Directional light owned by the Sun actor — null for all non-Sun bodies.
     UPROPERTY()

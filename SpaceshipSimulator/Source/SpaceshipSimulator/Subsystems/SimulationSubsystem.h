@@ -69,9 +69,8 @@ private:
     // True once the mouse has been captured on the first tick.
     bool bInputInitialized { false };
 
-    // Counts down for kStartupCleanupDuration seconds so streaming actors that
-    // appear after the first tick are still destroyed.
-    float StartupCleanupTimer { kStartupCleanupDuration };
+    // Set to true after the first tick's template-actor cleanup so it only runs once.
+    bool bStartupCleanupDone { false };
 
     void UpdateOrbitCamera(APlayerController* PC, APawn* Pawn);
 
@@ -99,7 +98,4 @@ private:
     static constexpr double kMinAltitudeAU          = 0.0002; //  ~30,000 km (closer than Moon)
     static constexpr double kMaxAltitudeAU          = 2.0;    //  ~2 AU
 
-    // Run template-actor cleanup for this many seconds so World Partition
-    // streaming actors that appear after the first tick are still destroyed.
-    static constexpr float  kStartupCleanupDuration = 5.0f;
 };

@@ -48,12 +48,11 @@ void USimulationSubsystem::Tick(float DeltaTime)
 {
     if (!Runner) return;
 
-    // Destroy default template actors (sky, landscape, fog, clouds, etc.) during
-    // startup. Runs every tick for kStartupCleanupDuration seconds so World
-    // Partition streaming actors that arrive after the first tick are also caught.
-    if (StartupCleanupTimer > 0.0f)
+    // Destroy default template actors (sky, landscape, fog, clouds, etc.) once
+    // on the first tick, before the simulation drives the scene.
+    if (!bStartupCleanupDone)
     {
-        StartupCleanupTimer -= DeltaTime;
+        bStartupCleanupDone = true;
         if (UWorld* World = GetWorld())
         {
             TArray<AActor*> ToDestroy;
@@ -186,6 +185,9 @@ void USimulationSubsystem::ReconcilePlanets(
         Actor->SetActorScale3D(ToUEScale(Body.radiusMeters, NetId));
 
         // Keep the Sun's directional light aimed from the Sun toward Earth (origin).
+        // UEPos is the visually-clamped display position (kSunDisplayDistanceCm), not the
+        // true sim position — intentional, as direction and distance to the light source are
+        // what matter for rendering, not the astronomically-accurate offset.
         if (NetId == 0 && !UEPos.IsNearlyZero())
             Actor->SetSunLightDirection((-UEPos).GetSafeNormal());
     }
@@ -254,21 +256,21 @@ FVector USimulationSubsystem::ToUEPosition(
     if (NetId == 0)
     {
         // Sun is ~1 AU away — compute direction in double then clamp distance.
-        const double offX = SimPos.x - RenderOrigin.x;
-        const double offY = SimPos.y - RenderOrigin.y;
-        const double offZ = SimPos.z - RenderOrigin.z;
+        const double offsetX = SimPos.x - RenderOrigin.x;
+        const double offsetY = SimPos.y - RenderOrigin.y;
+        const double offsetZ = SimPos.z - RenderOrigin.z;
 
-        double ueX =  offX * 100.0;
-        double ueY = -offZ * 100.0;
-        double ueZ =  offY * 100.0;
+        double uePositionX =  offsetX * 100.0;
+        double uePositionY = -offsetZ * 100.0;
+        double uePositionZ =  offsetY * 100.0;
 
-        const double dist = FMath::Sqrt(ueX*ueX + ueY*ueY + ueZ*ueZ);
+        const double dist = FMath::Sqrt(uePositionX*uePositionX + uePositionY*uePositionY + uePositionZ*uePositionZ);
         if (dist > 0.0)
         {
             const double scale = kSunDisplayDistanceCm / dist;
-            ueX *= scale; ueY *= scale; ueZ *= scale;
+            uePositionX *= scale; uePositionY *= scale; uePositionZ *= scale;
         }
-        return FVector(ueX, ueY, ueZ);
+        return FVector(uePositionX, uePositionY, uePositionZ);
     }
 
     const spaceship::client::RenderVec3 pos =

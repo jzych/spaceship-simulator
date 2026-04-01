@@ -36,7 +36,12 @@ shared::Vec3 select_render_origin(
     const InterpolatedWorldState& state,
     const shared::Vec3& cameraSimPosition)
 {
-    if (cameraSimPosition.x != 0.0 || cameraSimPosition.y != 0.0 || cameraSimPosition.z != 0.0)
+    // Use a sub-millimetre epsilon — no body legitimately sits at the exact sim origin.
+    constexpr double kZeroEpsilonSq = 1e-6; // (1 mm)^2
+    const double magSq = cameraSimPosition.x * cameraSimPosition.x
+                       + cameraSimPosition.y * cameraSimPosition.y
+                       + cameraSimPosition.z * cameraSimPosition.z;
+    if (magSq > kZeroEpsilonSq)
         return cameraSimPosition;
 
     for (const auto& body : state.massiveBodies)

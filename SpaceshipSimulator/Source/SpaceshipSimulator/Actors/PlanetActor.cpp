@@ -57,21 +57,26 @@ void APlanetActor::SetDisplayColor(const FLinearColor& Color)
         DynamicMaterial = UMaterialInstanceDynamic::Create(Base, this);
         MeshComponent->SetMaterial(0, DynamicMaterial);
 
-        // Log available vector parameters to help diagnose wrong parameter names.
+        // Detect which vector parameter name this material exposes and store it
+        // so subsequent calls use a single targeted set instead of a blind dual-set.
+        // UE5 BasicShapeMaterial has used both "Color" and "BaseColor" across versions.
         TArray<FMaterialParameterInfo> ParamInfos;
         TArray<FGuid> ParamIds;
         DynamicMaterial->GetAllVectorParameterInfo(ParamInfos, ParamIds);
+        ColorParamName = FName(TEXT("Color")); // safe default
         for (const FMaterialParameterInfo& Info : ParamInfos)
         {
+#if !UE_BUILD_SHIPPING
             UE_LOG(LogPlanet, Log, TEXT("Vector param available: '%s'"), *Info.Name.ToString());
+#endif
+            if (Info.Name == FName(TEXT("BaseColor")))
+                ColorParamName = FName(TEXT("BaseColor"));
         }
     }
 
     if (DynamicMaterial)
     {
-        // Try both known parameter names — UE5 versions vary between "Color" and "BaseColor".
-        DynamicMaterial->SetVectorParameterValue(TEXT("Color"), Color);
-        DynamicMaterial->SetVectorParameterValue(TEXT("BaseColor"), Color);
+        DynamicMaterial->SetVectorParameterValue(ColorParamName, Color);
     }
 }
 

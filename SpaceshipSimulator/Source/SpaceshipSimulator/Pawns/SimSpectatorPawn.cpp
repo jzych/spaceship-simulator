@@ -15,4 +15,5 @@ ASimSpectatorPawn::ASimSpectatorPawn()
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->SetupAttachment(RootSceneComponent);
     Camera->bUsePawnControlRotation = false;
+    Camera->SetActive(true);
 }
